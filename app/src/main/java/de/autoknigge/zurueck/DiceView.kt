@@ -78,7 +78,7 @@ class DiceView(context: Context) : View(context) {
 
     override fun onDraw(canvas: Canvas) {
         val s = min(width, height).toFloat()
-        val pad = s * 0.08f
+        val pad = s * 0.12f
         val off = bounce * s * 0.04f
         rect.set(pad, pad - off, s - pad, s - pad - off)
         val r = s * 0.2f
@@ -96,10 +96,19 @@ class DiceView(context: Context) : View(context) {
         canvas.drawRoundRect(rect, r, r, paint)
         paint.shader = null
         paint.alpha = 255
+        // kräftiger Rand in der Farbe des Spielers, mit Leuchten außen
         paint.style = Paint.Style.STROKE
-        paint.strokeWidth = s * 0.045f
+        paint.strokeWidth = s * 0.2f
+        paint.color = accent
+        paint.alpha = 70
+        canvas.drawRoundRect(rect, r, r, paint)
+        paint.alpha = 255
+        paint.strokeWidth = s * 0.115f
         paint.color = accent
         canvas.drawRoundRect(rect, r, r, paint)
+        paint.strokeWidth = s * 0.02f
+        paint.color = 0xCCFFFFFF.toInt()
+        canvas.drawRoundRect(rect.left + s * 0.06f, rect.top + s * 0.06f, rect.right - s * 0.06f, rect.bottom - s * 0.06f, r * 0.8f, r * 0.8f, paint)
         // Augen
         paint.style = Paint.Style.FILL
         paint.color = 0xFF1B3A2B.toInt()

@@ -51,6 +51,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var nameFields: List<EditText>
     private lateinit var levelButton: TextView
     private lateinit var designButton: TextView
+    private val seatDots = ArrayList<View>()
     private lateinit var continueButton: TextView
 
     // Spiel
@@ -192,14 +193,15 @@ class MainActivity : AppCompatActivity() {
                 gravity = Gravity.CENTER_VERTICAL
             }
             row.addView(View(this).apply {
+                seatDots.add(this)
                 background = GradientDrawable().apply {
                     shape = GradientDrawable.OVAL
-                    setColor(BoardView.COLORS[i])
+                    setColor(BoardView.palette[i])
                     setStroke(dp(2), Color.WHITE)
                 }
             }, LinearLayout.LayoutParams(dp(28), dp(28)).apply { rightMargin = dp(12) })
             val et = EditText(this).apply {
-                hint = BoardView.NAMES[i]
+                hint = BoardView.names[i]
                 setText(names[i])
                 setTextColor(TEXT)
                 setHintTextColor(Color.parseColor("#8E8A6A"))
@@ -224,13 +226,7 @@ class MainActivity : AppCompatActivity() {
         levelButton = darkButton("") { easy = !easy; updateSetup() }
         col.addView(levelButton, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(18) })
 
-        designButton = darkButton("") {
-            val v = 1 - prefs.getInt("board_style", 0)
-            prefs.edit().putInt("board_style", v).apply()
-            board.style = v
-            clickSound?.play(clickId, 0.7f, 0.7f, 1, 0, 1f)
-            updateSetup()
-        }
+        designButton = darkButton("") { cycleStyle() }
         col.addView(designButton, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(10) })
 
         col.addView(goldButton("Neues Spiel starten") { startNewGame() }, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(22) })
@@ -244,6 +240,19 @@ class MainActivity : AppCompatActivity() {
             topMargin = dp(16)
         })
         setupView.addView(col, ViewGroup.LayoutParams(MATCH, WRAP))
+    }
+
+    /** Wechselt das Brett-Design A → B → C → A und merkt es sich. */
+    private fun cycleStyle() {
+        val v = (prefs.getInt("board_style", 0) + 1) % 3
+        prefs.edit().putInt("board_style", v).apply()
+        board.style = v
+        clickSound?.play(clickId, 0.7f, 0.7f, 1, 0, 1f)
+        updateSetup()
+        game?.let {
+            dice.accent = BoardView.palette[it.current]
+            updateChips()
+        }
     }
 
     private fun cycleKind(i: Int) {
@@ -269,7 +278,15 @@ class MainActivity : AppCompatActivity() {
             nameFields[i].isEnabled = kinds[i] != Kind.OFF
         }
         levelButton.text = "Computer-Stufe: " + if (easy) "Leicht" else "Normal"
-        designButton.text = "Brett-Design: " + if (prefs.getInt("board_style", 0) == 0) "A (grüner Filz)" else "B (hell)"
+        designButton.text = "Brett-Design: " + when (prefs.getInt("board_style", 0)) {
+            0 -> "A (grüner Filz)"
+            1 -> "B (hell)"
+            else -> "C (dunkelgrün, Erdfarben)"
+        }
+        for (i in 0 until 4) {
+            nameFields[i].hint = BoardView.names[i]
+            (seatDots.getOrNull(i)?.background as? GradientDrawable)?.setColor(BoardView.palette[i])
+        }
         continueButton.visibility = if (prefs.contains("game")) View.VISIBLE else View.GONE
     }
 
@@ -315,7 +332,7 @@ class MainActivity : AppCompatActivity() {
                     "• Landest du auf einer fremden Figur, wird sie geschlagen und muss zurück ins Haus.\n" +
                     "• Eigene Figuren dürfen nicht auf eigene Figuren ziehen. Steht eine Figur auf dem Startfeld, muss sie bei einer 6 zuerst weiterziehen.\n" +
                     "• Nach einem Umlauf geht es in die Zielfelder. Dort musst du die Zahl nicht genau treffen, aber nicht über das letzte Feld hinaus.\n\n" +
-                    "Tipp: Ein Druck auf die Mitte des Bretts wechselt zwischen Design A und B. Das geht auch im Menü."
+                    "Tipp: Ein Druck auf die Mitte des Bretts wechselt zwischen den Designs A, B und C. Das geht auch im Menü."
             )
             .setPositiveButton("Verstanden", null)
             .show()
@@ -346,10 +363,7 @@ class MainActivity : AppCompatActivity() {
         board.onFigure = { color, fig -> onFigureTapped(color, fig) }
         board.style = prefs.getInt("board_style", 0)
         board.onCenterTap = {
-            board.style = 1 - board.style
-            prefs.edit().putInt("board_style", board.style).apply()
-            // kleines Klickgeräusch als Rückmeldung
-            clickSound?.play(clickId, 0.7f, 0.7f, 1, 0, 1f)
+            cycleStyle()
             board.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
         }
         gameView.addView(board, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(4) })
@@ -385,9 +399,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun playerName(color: Int): String {
-        val g = game ?: return BoardView.NAMES[color]
+        val g = game ?: return BoardView.names[color]
         val n = g.seat(color).name
-        return if (n.isBlank()) BoardView.NAMES[color] else n
+        return if (n.isBlank()) BoardView.names[color] else n
     }
 
     private fun startNewGame() {
@@ -444,8 +458,8 @@ class MainActivity : AppCompatActivity() {
             c.text = "${playerName(i)}  ${g.finished(i)}/4"
             c.background = GradientDrawable().apply {
                 cornerRadius = dp(12).toFloat()
-                setColor(if (g.current == i) BoardView.COLORS[i] else Color.parseColor("#1B2E22"))
-                setStroke(dp(2), BoardView.COLORS[i])
+                setColor(if (g.current == i) BoardView.palette[i] else Color.parseColor("#1B2E22"))
+                setStroke(dp(2), BoardView.palette[i])
             }
             c.setTextColor(if (g.current == i) Color.WHITE else TEXT)
         }
@@ -462,7 +476,7 @@ class MainActivity : AppCompatActivity() {
         val g = game ?: return
         busy = false
         board.movable = emptySet()
-        dice.accent = BoardView.COLORS[g.current]
+        dice.accent = BoardView.palette[g.current]
         updateChips()
         saveGame()
         val name = playerName(g.current)
