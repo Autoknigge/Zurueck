@@ -62,6 +62,8 @@ class MainActivity : AppCompatActivity() {
     private var game: Game? = null
     private var busy = false
     private var session = 0
+    private var clickSound: android.media.SoundPool? = null
+    private var clickId = 0
 
     private fun dp(n: Int) = (n * resources.displayMetrics.density).toInt()
 
@@ -108,6 +110,9 @@ class MainActivity : AppCompatActivity() {
         setContentView(root)
         adManager = AdManager(this, adBox, adSettings, true)
 
+        clickSound = android.media.SoundPool.Builder().setMaxStreams(2).build().also {
+            clickId = it.load(this, R.raw.click, 1)
+        }
         showSetup()
         showIntro { adManager.start() }
     }
@@ -332,6 +337,9 @@ class MainActivity : AppCompatActivity() {
         board.onCenterTap = {
             board.style = 1 - board.style
             prefs.edit().putInt("board_style", board.style).apply()
+            // kleines Klickgeräusch als Rückmeldung
+            clickSound?.play(clickId, 0.7f, 0.7f, 1, 0, 1f)
+            board.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
         }
         gameView.addView(board, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(4) })
 
@@ -636,6 +644,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        clickSound?.release()
+        clickSound = null
         if (::adManager.isInitialized) adManager.destroy()
         super.onDestroy()
     }
