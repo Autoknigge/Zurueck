@@ -50,6 +50,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var kindButtons: List<TextView>
     private lateinit var nameFields: List<EditText>
     private lateinit var levelButton: TextView
+    private lateinit var designButton: TextView
     private lateinit var continueButton: TextView
 
     // Spiel
@@ -223,6 +224,15 @@ class MainActivity : AppCompatActivity() {
         levelButton = darkButton("") { easy = !easy; updateSetup() }
         col.addView(levelButton, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(18) })
 
+        designButton = darkButton("") {
+            val v = 1 - prefs.getInt("board_style", 0)
+            prefs.edit().putInt("board_style", v).apply()
+            board.style = v
+            clickSound?.play(clickId, 0.7f, 0.7f, 1, 0, 1f)
+            updateSetup()
+        }
+        col.addView(designButton, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(10) })
+
         col.addView(goldButton("Neues Spiel starten") { startNewGame() }, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(22) })
         continueButton = goldButton("Spiel fortsetzen") { resumeGame() }
         col.addView(continueButton, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(12) })
@@ -259,6 +269,7 @@ class MainActivity : AppCompatActivity() {
             nameFields[i].isEnabled = kinds[i] != Kind.OFF
         }
         levelButton.text = "Computer-Stufe: " + if (easy) "Leicht" else "Normal"
+        designButton.text = "Brett-Design: " + if (prefs.getInt("board_style", 0) == 0) "A (grüner Filz)" else "B (hell)"
         continueButton.visibility = if (prefs.contains("game")) View.VISIBLE else View.GONE
     }
 
@@ -304,7 +315,7 @@ class MainActivity : AppCompatActivity() {
                     "• Landest du auf einer fremden Figur, wird sie geschlagen und muss zurück ins Haus.\n" +
                     "• Eigene Figuren dürfen nicht auf eigene Figuren ziehen. Steht eine Figur auf dem Startfeld, muss sie bei einer 6 zuerst weiterziehen.\n" +
                     "• Nach einem Umlauf geht es in die Zielfelder. Dort musst du die Zahl nicht genau treffen, aber nicht über das letzte Feld hinaus.\n\n" +
-                    "Tipp: Ein Druck auf die Mitte des Bretts wechselt das Design."
+                    "Tipp: Ein Druck auf die Mitte des Bretts wechselt zwischen Design A und B. Das geht auch im Menü."
             )
             .setPositiveButton("Verstanden", null)
             .show()
