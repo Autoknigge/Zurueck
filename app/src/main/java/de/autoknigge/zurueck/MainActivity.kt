@@ -298,7 +298,8 @@ class MainActivity : AppCompatActivity() {
                     "• Du ziehst eine Figur um die gewürfelte Zahl im Uhrzeigersinn. Tippe auf die Figur, die ziehen soll.\n" +
                     "• Landest du auf einer fremden Figur, wird sie geschlagen und muss zurück ins Haus.\n" +
                     "• Eigene Figuren dürfen nicht auf eigene Figuren ziehen. Steht eine Figur auf dem Startfeld, muss sie bei einer 6 zuerst weiterziehen.\n" +
-                    "• Nach einem Umlauf geht es in die Zielfelder. Dort musst du die Zahl nicht genau treffen, aber nicht über das letzte Feld hinaus."
+                    "• Nach einem Umlauf geht es in die Zielfelder. Dort musst du die Zahl nicht genau treffen, aber nicht über das letzte Feld hinaus.\n\n" +
+                    "Tipp: Ein Druck auf die Mitte des Bretts wechselt das Design."
             )
             .setPositiveButton("Verstanden", null)
             .show()
@@ -327,6 +328,11 @@ class MainActivity : AppCompatActivity() {
 
         board = BoardView(this)
         board.onFigure = { color, fig -> onFigureTapped(color, fig) }
+        board.style = prefs.getInt("board_style", 0)
+        board.onCenterTap = {
+            board.style = 1 - board.style
+            prefs.edit().putInt("board_style", board.style).apply()
+        }
         gameView.addView(board, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(4) })
 
         val bottom = LinearLayout(this).apply {
