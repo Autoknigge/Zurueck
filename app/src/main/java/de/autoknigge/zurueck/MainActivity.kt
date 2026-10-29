@@ -65,6 +65,12 @@ class MainActivity : AppCompatActivity() {
     private var busy = false
     private var session = 0
     private var clickSound: android.media.SoundPool? = null
+    private lateinit var music: MusicPlayer
+    private var musicRefresh: (() -> Unit)? = null
+    private lateinit var musicTop: TextView
+    private val pickMusic = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenMultipleDocuments()
+    ) { uris -> if (uris.isNotEmpty()) music.add(uris) }
     private var clickId = 0
 
     private fun dp(n: Int) = (n * resources.displayMetrics.density).toInt()
@@ -75,6 +81,11 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         prefs = getSharedPreferences("zurueck", MODE_PRIVATE)
+        music = MusicPlayer(this, prefs)
+        music.onChange = {
+            musicRefresh?.invoke()
+            if (::musicTop.isInitialized) musicTop.alpha = if (music.playing) 1f else 0.65f
+        }
         loadSetup()
 
         val root = LinearLayout(this).apply {
@@ -232,7 +243,8 @@ class MainActivity : AppCompatActivity() {
         col.addView(goldButton("Neues Spiel starten") { startNewGame() }, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(22) })
         continueButton = goldButton("Spiel fortsetzen") { resumeGame() }
         col.addView(continueButton, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(12) })
-        col.addView(darkButton("Spielregeln") { showRules() }, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(14) })
+        col.addView(darkButton("🎵  Musik") { showMusic() }, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(14) })
+        col.addView(darkButton("Spielregeln") { showRules() }, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(10) })
 
         col.addView(View(this), LinearLayout.LayoutParams(MATCH, 0, 1f))
         col.addView(link("Eine Idee von autoknigge.de", URL_HOME), LinearLayout.LayoutParams(WRAP, WRAP).apply {
@@ -297,6 +309,7 @@ class MainActivity : AppCompatActivity() {
     private fun showSetup() {
         updateSetup()
         gameView.visibility = View.GONE
+        window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         setupView.visibility = View.VISIBLE
         footerView?.visibility = View.VISIBLE
     }
@@ -318,6 +331,85 @@ class MainActivity : AppCompatActivity() {
                 prefs.edit().putBoolean("intro_seen", true).apply()
                 then()
             }
+            .show()
+    }
+
+    private fun showMusic() {
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(8), dp(16), dp(4))
+        }
+        val now = text("", 16f, TEXT, true).apply { maxLines = 2 }
+        box.addView(now)
+        val controls = LinearLayout(this).apply { gravity = Gravity.CENTER }
+        val play = darkButton("▶") { music.toggle() }
+        controls.addView(darkButton("⏮") { music.previous() }, LinearLayout.LayoutParams(0, WRAP, 1f).apply { rightMargin = dp(6) })
+        controls.addView(play, LinearLayout.LayoutParams(0, WRAP, 1.4f).apply { rightMargin = dp(6) })
+        controls.addView(darkButton("⏭") { music.next() }, LinearLayout.LayoutParams(0, WRAP, 1f))
+        box.addView(controls, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(10) })
+        val modes = LinearLayout(this).apply { gravity = Gravity.CENTER }
+        val shuffle = darkButton("") { music.shuffle = !music.shuffle }
+        val repeat = darkButton("") { music.repeat = !music.repeat }
+        modes.addView(shuffle, LinearLayout.LayoutParams(0, WRAP, 1f).apply { rightMargin = dp(6) })
+        modes.addView(repeat, LinearLayout.LayoutParams(0, WRAP, 1f))
+        box.addView(modes, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(8) })
+        box.addView(text("Lautstärke der Musik", 13f, DIM), LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(10) })
+        val vol = android.widget.SeekBar(this).apply {
+            max = 100
+            progress = (music.volume * 100).toInt()
+            progressTintList = android.content.res.ColorStateList.valueOf(GOLD)
+            thumbTintList = android.content.res.ColorStateList.valueOf(GOLD)
+            setOnSeekBarChangeListener(object : android.widget.SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(s: android.widget.SeekBar, p: Int, user: Boolean) {
+                    if (user) music.volume = p / 100f
+                }
+                override fun onStartTrackingTouch(s: android.widget.SeekBar) {}
+                override fun onStopTrackingTouch(s: android.widget.SeekBar) {}
+            })
+        }
+        box.addView(vol)
+        val listBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        val scroll = ScrollView(this).apply { addView(listBox) }
+        box.addView(scroll, LinearLayout.LayoutParams(MATCH, dp(180)).apply { topMargin = dp(8) })
+        box.addView(darkButton("＋  Dateien hinzufügen (Musik oder Video)") {
+            pickMusic.launch(arrayOf("audio/*", "video/*"))
+        }, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(8) })
+        box.addView(text("Es läuft nur der Ton. Die Musik spielt, solange das Spiel offen ist.", 12f, DIM), LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(6) })
+
+        val refresh = {
+            val t = music.current()
+            now.text = if (t == null) "Noch keine Titel gewählt" else (if (music.playing) "▶  " else "⏸  ") + t.name
+            play.text = if (music.playing) "⏸" else "▶"
+            shuffle.text = if (music.shuffle) "🔀 Zufall: an" else "🔀 Zufall: aus"
+            repeat.text = if (music.repeat) "🔁 Wiederholen: an" else "🔁 Wiederholen: aus"
+            listBox.removeAllViews()
+            for ((i, tr) in music.tracks.withIndex()) {
+                val row = LinearLayout(this).apply {
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(0, dp(2), 0, dp(2))
+                }
+                row.addView(text(tr.name, 15f, if (i == music.index) GOLD else TEXT, i == music.index).apply {
+                    maxLines = 1
+                    ellipsize = android.text.TextUtils.TruncateAt.END
+                    setPadding(0, dp(8), 0, dp(8))
+                    setOnClickListener { music.play(i) }
+                }, LinearLayout.LayoutParams(0, WRAP, 1f))
+                row.addView(text("✕", 17f, DIM).apply {
+                    gravity = Gravity.CENTER
+                    contentDescription = "Titel entfernen"
+                    setOnClickListener { music.remove(i) }
+                }, LinearLayout.LayoutParams(dp(40), dp(40)))
+                listBox.addView(row)
+            }
+        }
+        refresh()
+        musicRefresh = refresh
+        AlertDialog.Builder(this)
+            .setTitle("🎵  Musik")
+            .setView(box)
+            .setPositiveButton("Fertig", null)
+            .setNeutralButton("Liste leeren") { _, _ -> music.clear() }
+            .setOnDismissListener { musicRefresh = null }
             .show()
     }
 
@@ -356,7 +448,13 @@ class MainActivity : AppCompatActivity() {
         }, LinearLayout.LayoutParams(dp(48), dp(48)))
         status = text("", 18f, TEXT, true).apply { gravity = Gravity.CENTER }
         top.addView(status, LinearLayout.LayoutParams(0, WRAP, 1f))
-        top.addView(View(this), LinearLayout.LayoutParams(dp(48), dp(48)))
+        musicTop = text("🎵", 24f, GOLD).apply {
+            gravity = Gravity.CENTER
+            alpha = 0.65f
+            contentDescription = "Musik"
+            setOnClickListener { showMusic() }
+        }
+        top.addView(musicTop, LinearLayout.LayoutParams(dp(48), dp(48)))
         gameView.addView(top, LinearLayout.LayoutParams(MATCH, WRAP))
 
         board = BoardView(this)
@@ -428,6 +526,7 @@ class MainActivity : AppCompatActivity() {
         setupView.visibility = View.GONE
         footerView?.visibility = View.GONE
         gameView.visibility = View.VISIBLE
+        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         board.game = game
         board.movable = emptySet()
         dice.show(0)
@@ -668,7 +767,14 @@ class MainActivity : AppCompatActivity() {
         if (::adManager.isInitialized) adManager.resume()
     }
 
+    override fun onStop() {
+        // Ohne offenes Spiel pausiert die Musik (sie läuft nur, solange die App im Vordergrund ist).
+        if (::music.isInitialized && music.playing) music.pause()
+        super.onStop()
+    }
+
     override fun onDestroy() {
+        if (::music.isInitialized) music.release()
         clickSound?.release()
         clickSound = null
         if (::adManager.isInitialized) adManager.destroy()
