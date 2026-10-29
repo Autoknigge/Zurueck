@@ -3,17 +3,17 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
-// AdMob-IDs von Zurück (öffentliche Kennungen). Bis eigene IDs eingetragen sind, kommen Googles Test-Anzeigen.
+// AdMob-IDs von Zurück (öffentliche Kennungen). Überschreibbar per GitHub-Secrets ADMOB_APP_ID / ADMOB_BANNER_ID / ADMOB_OPEN_ID.
 // Überschreibbar per GitHub-Secrets ADMOB_APP_ID / ADMOB_BANNER_ID / ADMOB_OPEN_ID.
 val admobAppId: String =
     (project.findProperty("ADMOB_APP_ID") as String?)?.takeIf { it.isNotBlank() }
-        ?: "ca-app-pub-3940256099942544~3347511713"
+        ?: "ca-app-pub-7178658520690671~3936295368"
 val admobBannerId: String =
     (project.findProperty("ADMOB_BANNER_ID") as String?)?.takeIf { it.isNotBlank() }
-        ?: "ca-app-pub-3940256099942544/9214589741"
+        ?: "ca-app-pub-7178658520690671/8756930090"
 val admobOpenId: String =
     (project.findProperty("ADMOB_OPEN_ID") as String?)?.takeIf { it.isNotBlank() }
-        ?: "ca-app-pub-3940256099942544/9257395921"
+        ?: "ca-app-pub-7178658520690671/4817685086"
 
 val ksFile = project.findProperty("KEYSTORE_FILE") as String?
 val ksPassword = project.findProperty("KEYSTORE_PASSWORD") as String?

@@ -10,6 +10,6 @@ Unter **Actions → Build** läuft der Build bei jedem Push.
 - Ohne Secrets: Artefakt **Zurueck-Test** mit einer Test-APK.
 
 ## Werbung
-Bis eigene AdMob-IDs als Secrets `ADMOB_APP_ID`, `ADMOB_BANNER_ID`, `ADMOB_OPEN_ID` eingetragen sind, kommen Googles Test-Anzeigen.
+Die AdMob-IDs stehen in `app/build.gradle.kts` (öffentliche Kennungen) und lassen sich per Secrets `ADMOB_APP_ID`, `ADMOB_BANNER_ID`, `ADMOB_OPEN_ID` überschreiben.
 
 Datenschutzerklärung: https://autoknigge.de/zurueck/datenschutz.html
