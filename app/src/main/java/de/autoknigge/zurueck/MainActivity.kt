@@ -159,10 +159,23 @@ class MainActivity : AppCompatActivity() {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(20), dp(24), dp(20), dp(16))
         }
-        col.addView(text("Zurück", 44f, GOLD, true).apply { gravity = Gravity.CENTER })
-        col.addView(text("Würfelspiel für 2 bis 4 Spieler", 15f, DIM).apply { gravity = Gravity.CENTER })
+        // Logo mit Versionsnummer in der rechten oberen Ecke
+        val logoBox = FrameLayout(this)
+        logoBox.addView(android.widget.ImageView(this).apply {
+            setImageResource(R.drawable.logo_zurueck)
+            adjustViewBounds = true
+            contentDescription = "Zurück"
+        }, FrameLayout.LayoutParams(dp(230), WRAP))
         val ver = packageManager.getPackageInfo(packageName, 0).versionName ?: ""
-        col.addView(text(ver, 11f, GOLD).apply { gravity = Gravity.CENTER })
+        logoBox.addView(
+            text(ver, 10f, Color.parseColor("#FFE07A")),
+            FrameLayout.LayoutParams(WRAP, WRAP, Gravity.TOP or Gravity.END).apply {
+                topMargin = dp(16)
+                rightMargin = dp(26)
+            }
+        )
+        col.addView(logoBox, LinearLayout.LayoutParams(WRAP, WRAP).apply { gravity = Gravity.CENTER_HORIZONTAL })
+        col.addView(text("Würfelspiel für 2 bis 4 Spieler", 15f, DIM).apply { gravity = Gravity.CENTER })
 
         col.addView(text("Wer spielt mit?", 17f, TEXT, true), LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(22) })
         val kb = ArrayList<TextView>()
