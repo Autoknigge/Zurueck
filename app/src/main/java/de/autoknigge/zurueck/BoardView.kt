@@ -24,10 +24,10 @@ class BoardView(context: Context) : View(context) {
 
     companion object {
         val COLORS = intArrayOf(0xFFD3221F.toInt(), 0xFF1F9A3F.toInt(), 0xFFF5B81B.toInt(), 0xFF1E56C8.toInt())
-        /** Erdfarben für Design C: Erdrot, Oliv, Ocker, Braun. */
+        /** Erdfarben für Design C (heißen Rot, Grün, Gelb, Braun). */
         val EARTH = intArrayOf(0xFFB8432A.toInt(), 0xFF7F9A2C.toInt(), 0xFFE8A61E.toInt(), 0xFF7A4A2B.toInt())
         val NAMES_STD = arrayOf("Rot", "Grün", "Gelb", "Blau")
-        val NAMES_EARTH = arrayOf("Erdrot", "Oliv", "Ocker", "Braun")
+        val NAMES_EARTH = arrayOf("Rot", "Grün", "Gelb", "Braun")
 
         /** Farben und Namen des gerade gewählten Designs. */
         var palette: IntArray = COLORS
