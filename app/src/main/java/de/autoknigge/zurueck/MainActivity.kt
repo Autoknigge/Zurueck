@@ -497,8 +497,12 @@ class MainActivity : AppCompatActivity() {
             letterSpacing = 0.19f
             gravity = Gravity.CENTER
         })
-        status = text("", 22f, Color.parseColor("#F7EFD9"), true).apply { gravity = Gravity.CENTER }
-        heading.addView(status)
+        status = text("", 22f, Color.parseColor("#F7EFD9"), true).apply {
+            gravity = Gravity.CENTER
+            maxLines = 1
+            setAutoSizeTextTypeUniformWithConfiguration(13, 22, 1, android.util.TypedValue.COMPLEX_UNIT_SP)
+        }
+        heading.addView(status, LinearLayout.LayoutParams(MATCH, WRAP))
         top.addView(heading, LinearLayout.LayoutParams(0, WRAP, 1f))
         musicTop = frameBox("♫") { showMusic() }.apply {
             alpha = 0.65f
@@ -519,8 +523,11 @@ class MainActivity : AppCompatActivity() {
             }
         }
         turn.addView(pulseDot, LinearLayout.LayoutParams(dp(9), dp(9)).apply { rightMargin = dp(8) })
-        turnText = text("", 13f, Color.parseColor("#E6E4CF"))
-        turn.addView(turnText)
+        turnText = text("", 13f, Color.parseColor("#E6E4CF")).apply {
+            maxLines = 1
+            setAutoSizeTextTypeUniformWithConfiguration(9, 13, 1, android.util.TypedValue.COMPLEX_UNIT_SP)
+        }
+        turn.addView(turnText, LinearLayout.LayoutParams(0, WRAP, 1f))
         gameView.addView(turn, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(8); bottomMargin = dp(4) })
         android.animation.ObjectAnimator.ofFloat(pulseDot, "alpha", 1f, 0.25f).apply {
             duration = 800
@@ -616,6 +623,9 @@ class MainActivity : AppCompatActivity() {
         rollBtn.addView(dice, LinearLayout.LayoutParams(dp(46), dp(46)).apply { rightMargin = dp(12) })
         rollBtn.addView(rollText)
         card.addView(rollBtn, LinearLayout.LayoutParams(MATCH, WRAP))
+        // die ganze Karte ist ein großer Würfelknopf (bessere Trefferquote)
+        card.isClickable = true
+        card.setOnClickListener { onDiceTapped() }
         gameView.addView(card, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(10) })
 
         bottomHint = text("", 12f, Color.parseColor("#B9CABE")).apply { gravity = Gravity.CENTER }
