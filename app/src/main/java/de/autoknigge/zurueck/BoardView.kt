@@ -184,29 +184,30 @@ class BoardView(context: Context) : View(context) {
         rect.set(3.62f * c, 0.4f * c, 7.38f * c, s - 0.4f * c)
         canvas.drawRoundRect(rect, c * 0.45f, c * 0.45f, paint)
 
-        // Häuser
-        val corners = arrayOf(0 to 0, 9 to 0, 9 to 9, 0 to 9)
+        // Heimat: je Farbe vier goldgelbe Kreise (keine Platte); stehen Figuren zu Hause, sitzen sie darauf
         for (col in 0 until 4) {
-            val (hx, hy) = corners[col]
-            val tone = palette[col]
             val activeSeat = g != null && g.seat(col).kind != Kind.OFF
-            rect.set(hx * c + c * 0.26f, hy * c + c * 0.26f, (hx + 2) * c - c * 0.26f, (hy + 2) * c - c * 0.26f)
-            paint.style = Paint.Style.FILL
-            paint.color = mix(tone, 0xFF10281C.toInt(), 0.2f)
-            paint.alpha = if (activeSeat) 255 else 120
-            canvas.drawRoundRect(rect, c * 0.42f, c * 0.42f, paint)
-            val isCur = g != null && g.current == col
-            paint.style = Paint.Style.STROKE
-            paint.strokeWidth = c * if (isCur) 0.12f else 0.06f
-            paint.color = if (isCur) goldLight else tone
-            canvas.drawRoundRect(rect, c * 0.42f, c * 0.42f, paint)
-            paint.alpha = 255
-            rect.inset(c * 0.15f, c * 0.15f)
-            paint.strokeWidth = c * 0.03f
-            paint.color = mix(tone, 0xFFFFFFFF.toInt(), 0.65f)
-            paint.alpha = 150
-            canvas.drawRoundRect(rect, c * 0.3f, c * 0.3f, paint)
-            paint.alpha = 255
+            for ((sc, sr) in Game.HOME[col]) {
+                val x = cx(sc.toFloat())
+                val y = cx(sr.toFloat())
+                val r = c * 0.4f
+                paint.style = Paint.Style.FILL
+                paint.color = 0x55000000
+                canvas.drawCircle(x, y + c * 0.05f, r, paint)
+                paint.shader = RadialGradient(x - r * 0.3f, y - r * 0.35f, r * 1.4f, 0xFFFFE9A0.toInt(), 0xFFD9A93A.toInt(), Shader.TileMode.CLAMP)
+                paint.alpha = if (activeSeat) 255 else 70
+                canvas.drawCircle(x, y, r, paint)
+                paint.shader = null
+                paint.style = Paint.Style.STROKE
+                paint.strokeWidth = c * 0.06f
+                paint.color = 0xFF8A6D1B.toInt()
+                canvas.drawCircle(x, y, r, paint)
+                // dünner Ring in der Spielerfarbe zeigt, wem der Platz gehört
+                paint.strokeWidth = c * 0.05f
+                paint.color = palette[col]
+                canvas.drawCircle(x, y, r + c * 0.06f, paint)
+                paint.alpha = 255
+            }
         }
 
         // Ringfelder: elfenbeinfarbene Scheiben mit Goldring, Startfelder in Farbe
@@ -288,31 +289,32 @@ class BoardView(context: Context) : View(context) {
         canvas.drawRoundRect(rect, c * 0.5f, c * 0.5f, paint)
 
         val g = game
-        // Häuser (Eckfelder)
-        val corners = arrayOf(0 to 0, 9 to 0, 9 to 9, 0 to 9)
+        // Heimat: je Farbe vier goldgelbe Kreise (keine Platte); stehen Figuren zu Hause, sitzen sie darauf
         for (col in 0 until 4) {
-            val (hx, hy) = corners[col]
-            rect.set(hx * c + c * 0.1f, hy * c + c * 0.1f, (hx + 2) * c - c * 0.1f, (hy + 2) * c - c * 0.1f)
-            paint.style = Paint.Style.FILL
-            paint.color = tint(palette[col], 0.35f)
-            canvas.drawRoundRect(rect, c * 0.4f, c * 0.4f, paint)
             val activeSeat = g != null && g.seat(col).kind != Kind.OFF
-            paint.style = Paint.Style.STROKE
-            paint.strokeWidth = c * if (g != null && g.current == col) 0.12f else 0.05f
-            paint.color = if (g != null && g.current == col) 0xFFFFD54F.toInt() else palette[col]
-            paint.alpha = if (activeSeat) 255 else 90
-            canvas.drawRoundRect(rect, c * 0.4f, c * 0.4f, paint)
-            paint.alpha = 255
             for ((sc, sr) in Game.HOME[col]) {
+                val x = cx(sc.toFloat())
+                val y = cx(sr.toFloat())
+                val r = c * 0.4f
                 paint.style = Paint.Style.FILL
-                paint.color = tint(palette[col], 0.15f)
-                canvas.drawCircle(cx(sc.toFloat()), cx(sr.toFloat()), c * 0.36f, paint)
+                paint.color = 0x55000000
+                canvas.drawCircle(x, y + c * 0.05f, r, paint)
+                paint.shader = RadialGradient(x - r * 0.3f, y - r * 0.35f, r * 1.4f, 0xFFFFE9A0.toInt(), 0xFFD9A93A.toInt(), Shader.TileMode.CLAMP)
+                paint.alpha = if (activeSeat) 255 else 70
+                canvas.drawCircle(x, y, r, paint)
+                paint.shader = null
                 paint.style = Paint.Style.STROKE
-                paint.strokeWidth = c * 0.04f
+                paint.strokeWidth = c * 0.06f
+                paint.color = 0xFF8A6D1B.toInt()
+                canvas.drawCircle(x, y, r, paint)
+                // dünner Ring in der Spielerfarbe zeigt, wem der Platz gehört
+                paint.strokeWidth = c * 0.05f
                 paint.color = palette[col]
-                canvas.drawCircle(cx(sc.toFloat()), cx(sr.toFloat()), c * 0.36f, paint)
+                canvas.drawCircle(x, y, r + c * 0.06f, paint)
+                paint.alpha = 255
             }
         }
+
         // Ringfelder
         for ((i, cell) in Game.TRACK_CELLS.withIndex()) {
             val startOf = Game.START.indexOf(i)
