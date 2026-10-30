@@ -75,11 +75,36 @@ class MainActivity : AppCompatActivity() {
     private var session = 0
     private var clickSound: android.media.SoundPool? = null
     private lateinit var music: MusicPlayer
+    private val musicListener: () -> Unit = {
+        runOnUiThread {
+            musicRefresh?.invoke()
+            if (::musicTop.isInitialized) musicTop.alpha = if (music.playing) 1f else 0.65f
+        }
+    }
+    private val askNotifications = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { }
     private var musicRefresh: (() -> Unit)? = null
     private lateinit var musicTop: TextView
     private val pickMusic = registerForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.OpenMultipleDocuments()
-    ) { uris -> if (uris.isNotEmpty()) music.add(uris) }
+    ) { uris ->
+        if (uris.isNotEmpty()) {
+            askNotificationPermission()
+            music.add(uris)
+        }
+    }
+
+    /** Ab Android 13 braucht die Benachrichtigung mit den Musik-Knöpfen eine Erlaubnis (einmal fragen). */
+    private fun askNotificationPermission() {
+        if (android.os.Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED &&
+            !prefs.getBoolean("asked_notifications", false)
+        ) {
+            prefs.edit().putBoolean("asked_notifications", true).apply()
+            askNotifications.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
     private var clickId = 0
 
     private fun dp(n: Int) = (n * resources.displayMetrics.density).toInt()
@@ -90,11 +115,8 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         prefs = getSharedPreferences("zurueck", MODE_PRIVATE)
-        music = MusicPlayer(this, prefs)
-        music.onChange = {
-            musicRefresh?.invoke()
-            if (::musicTop.isInitialized) musicTop.alpha = if (music.playing) 1f else 0.65f
-        }
+        music = MusicHub.get(this)
+        music.addListener(musicListener)
         loadSetup()
 
         val root = LinearLayout(this).apply {
@@ -383,7 +405,7 @@ class MainActivity : AppCompatActivity() {
         box.addView(darkButton("＋  Dateien hinzufügen (Musik oder Video)") {
             pickMusic.launch(arrayOf("audio/*", "video/*"))
         }, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(8) })
-        box.addView(text("Es läuft nur der Ton. Die Musik spielt, solange das Spiel offen ist.", 12f, DIM), LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(6) })
+        box.addView(text("Es läuft nur der Ton. Die Musik läuft auch weiter, wenn du eine andere App öffnest. In der Benachrichtigung steuerst du sie.", 12f, DIM), LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(6) })
 
         val refresh = {
             val t = music.current()
@@ -886,14 +908,8 @@ class MainActivity : AppCompatActivity() {
         if (::adManager.isInitialized) adManager.resume()
     }
 
-    override fun onStop() {
-        // Ohne offenes Spiel pausiert die Musik (sie läuft nur, solange die App im Vordergrund ist).
-        if (::music.isInitialized && music.playing) music.pause()
-        super.onStop()
-    }
-
     override fun onDestroy() {
-        if (::music.isInitialized) music.release()
+        if (::music.isInitialized) music.removeListener(musicListener)
         clickSound?.release()
         clickSound = null
         if (::adManager.isInitialized) adManager.destroy()

@@ -29,13 +29,13 @@ class MusicPlayer(private val ctx: Context, private val prefs: SharedPreferences
         set(v) {
             field = v
             prefs.edit().putBoolean("music_shuffle", v).apply()
-            onChange?.invoke()
+            changed()
         }
     var repeat = prefs.getBoolean("music_repeat", true)
         set(v) {
             field = v
             prefs.edit().putBoolean("music_repeat", v).apply()
-            onChange?.invoke()
+            changed()
         }
     var volume = prefs.getFloat("music_volume", 0.8f)
         set(v) {
@@ -44,8 +44,20 @@ class MusicPlayer(private val ctx: Context, private val prefs: SharedPreferences
             applyVolume()
         }
 
-    /** Wird nach jeder Änderung aufgerufen (Oberfläche aktualisieren). */
-    var onChange: (() -> Unit)? = null
+    private val listeners = ArrayList<() -> Unit>()
+
+    /** Oberfläche und Benachrichtigung hören auf Änderungen. */
+    fun addListener(l: () -> Unit) {
+        if (l !in listeners) listeners.add(l)
+    }
+
+    fun removeListener(l: () -> Unit) {
+        listeners.remove(l)
+    }
+
+    private fun changed() {
+        listeners.toList().forEach { it() }
+    }
 
     private var mp: MediaPlayer? = null
     private var errors = 0
@@ -127,7 +139,7 @@ class MusicPlayer(private val ctx: Context, private val prefs: SharedPreferences
         }
         if (tracks.isNotEmpty() && index < 0) index = 0
         save()
-        onChange?.invoke()
+        changed()
         if (wasEmpty && tracks.isNotEmpty()) play(0)
     }
 
@@ -145,7 +157,7 @@ class MusicPlayer(private val ctx: Context, private val prefs: SharedPreferences
             index--
         }
         save()
-        onChange?.invoke()
+        changed()
     }
 
     fun clear() {
@@ -153,7 +165,7 @@ class MusicPlayer(private val ctx: Context, private val prefs: SharedPreferences
         tracks.clear()
         index = -1
         save()
-        onChange?.invoke()
+        changed()
     }
 
     fun play(i: Int) {
@@ -163,13 +175,14 @@ class MusicPlayer(private val ctx: Context, private val prefs: SharedPreferences
         stopPlayerOnly()
         if (am.requestAudioFocus(focusRequest) != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
             playing = false
-            onChange?.invoke()
+            changed()
             return
         }
         val player = MediaPlayer()
         mp = player
         try {
             player.setAudioAttributes(attrs)
+            player.setWakeMode(ctx, android.os.PowerManager.PARTIAL_WAKE_LOCK)
             player.setDataSource(ctx, tracks[i].uri)
             player.setOnPreparedListener {
                 if (mp === player) {
@@ -177,7 +190,8 @@ class MusicPlayer(private val ctx: Context, private val prefs: SharedPreferences
                     player.start()
                     playing = true
                     errors = 0
-                    onChange?.invoke()
+                    MusicService.ensureRunning(ctx)
+                    changed()
                 }
             }
             player.setOnCompletionListener { if (mp === player) next(true) }
@@ -194,7 +208,7 @@ class MusicPlayer(private val ctx: Context, private val prefs: SharedPreferences
             errors++
             if (errors < tracks.size) next(true) else stop()
         }
-        onChange?.invoke()
+        changed()
     }
 
     fun toggle() {
@@ -209,7 +223,7 @@ class MusicPlayer(private val ctx: Context, private val prefs: SharedPreferences
             // ignorieren
         }
         playing = false
-        onChange?.invoke()
+        changed()
     }
 
     private fun resume() {
@@ -221,7 +235,7 @@ class MusicPlayer(private val ctx: Context, private val prefs: SharedPreferences
         } catch (e: Exception) {
             playing = false
         }
-        onChange?.invoke()
+        changed()
     }
 
     fun next(auto: Boolean = false) {
@@ -240,7 +254,7 @@ class MusicPlayer(private val ctx: Context, private val prefs: SharedPreferences
                 stop()
                 index = 0
                 save()
-                onChange?.invoke()
+                changed()
                 return
             }
             idx = 0
@@ -279,7 +293,7 @@ class MusicPlayer(private val ctx: Context, private val prefs: SharedPreferences
         } catch (e: Exception) {
             // ignorieren
         }
-        onChange?.invoke()
+        changed()
     }
 
     private fun applyVolume() {
@@ -292,7 +306,6 @@ class MusicPlayer(private val ctx: Context, private val prefs: SharedPreferences
     }
 
     fun release() {
-        onChange = null
         stop()
     }
 
