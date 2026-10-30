@@ -86,13 +86,19 @@ class BoardView(context: Context) : View(context) {
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
+        reducedMotion = try {
+            android.provider.Settings.Global.getFloat(context.contentResolver, android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
+        } catch (e: Exception) {
+            false
+        }
         pulser.start()
-        spinner.start()
+        if (!reducedMotion) spinner.start()
     }
 
     override fun onDetachedFromWindow() {
         pulser.cancel()
         spinner.cancel()
+        rollAnim?.cancel()
         super.onDetachedFromWindow()
     }
 
@@ -407,15 +413,103 @@ class BoardView(context: Context) : View(context) {
     // ---------------------------------------------------------------- Mitte: runde Platte mit drehendem 3D-Würfel
 
     private var spin = 0f
+    private enum class CubeMode { IDLE, ROLL, HOLD }
+    private var cubeMode = CubeMode.IDLE
+    private var cubeAy = 0.35f
+    private var cubeAx = -0.3f
+    private var idleBaseAy = 0.35f
+    private var idleBaseAx = -0.3f
+    private var idleSpinStart = 0f
+    private var reducedMotion = false
+    private var rollAnim: ValueAnimator? = null
     private val spinner = ValueAnimator.ofFloat(0f, 360f).apply {
         duration = 14000
         repeatCount = ValueAnimator.INFINITE
         interpolator = LinearInterpolator()
         addUpdateListener {
             spin = it.animatedValue as Float
-            val c = cell()
-            invalidate((4.4f * c).toInt(), (4.4f * c).toInt(), (6.6f * c).toInt(), (6.6f * c).toInt())
+            if (cubeMode == CubeMode.IDLE) invalidateCenter()
         }
+    }
+
+    private fun invalidateCenter() {
+        val c = cell()
+        invalidate((4.1f * c).toInt(), (4.1f * c).toInt(), (7.0f * c).toInt(), (7.0f * c).toInt())
+    }
+
+    /** Orientierung (Drehung um Y, dann um X), bei der die Seite mit [n] Augen nach vorn zeigt. */
+    private fun target(n: Int): Pair<Float, Float> {
+        val pi = PI.toFloat()
+        return when (n) {
+            1 -> 0.35f to -0.3f
+            6 -> pi + 0.35f to -0.3f
+            2 -> -pi / 2 + 0.35f to -0.3f
+            5 -> pi / 2 + 0.35f to -0.3f
+            3 -> 0.35f to pi / 2 - 0.3f
+            else -> 0.35f to -pi / 2 + 0.3f
+        }
+    }
+
+    /** Der Würfel in der Mitte wirbelt schnell und bleibt auf [result] stehen. */
+    fun rollCube(result: Int, ms: Long = 800) {
+        rollAnim?.cancel()
+        val (ty, tx) = target(result)
+        val twoPi = (2 * PI).toFloat()
+        // aktuelle Lage bestimmen (Ruhedrehung oder letzter Stand)
+        val startY: Float
+        val startX: Float
+        if (cubeMode == CubeMode.IDLE && !reducedMotion) {
+            val d = Math.toRadians((spin - idleSpinStart).toDouble()).toFloat()
+            startY = idleBaseAy + d
+            startX = idleBaseAx + 0.2f * sin(d * 2f)
+        } else {
+            startY = cubeAy
+            startX = cubeAx
+        }
+        fun norm(a: Float): Float {
+            var r = a % twoPi
+            if (r < 0) r += twoPi
+            return r
+        }
+        val dy = norm(ty - startY) + twoPi * 2
+        val dx = norm(tx - startX) + twoPi
+        cubeMode = CubeMode.ROLL
+        if (reducedMotion) {
+            cubeAy = ty
+            cubeAx = tx
+            cubeMode = CubeMode.HOLD
+            invalidateCenter()
+            return
+        }
+        rollAnim = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = ms
+            interpolator = android.view.animation.DecelerateInterpolator(1.6f)
+            addUpdateListener {
+                val t = it.animatedValue as Float
+                cubeAy = startY + dy * t
+                cubeAx = startX + dx * t
+                invalidateCenter()
+            }
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    cubeAy = ty
+                    cubeAx = tx
+                    cubeMode = CubeMode.HOLD
+                    invalidateCenter()
+                }
+            })
+            start()
+        }
+    }
+
+    /** Nach dem Zug dreht sich der Würfel wieder langsam von selbst. */
+    fun resumeIdle() {
+        if (cubeMode == CubeMode.IDLE) return
+        rollAnim?.cancel()
+        idleBaseAy = cubeAy
+        idleBaseAx = cubeAx
+        idleSpinStart = spin
+        cubeMode = CubeMode.IDLE
     }
 
     private val path = android.graphics.Path()
@@ -454,29 +548,50 @@ class BoardView(context: Context) : View(context) {
     private fun drawCenter(canvas: Canvas, c: Float) {
         val mx = 5.5f * c
         val my = 5.5f * c
-        // runde goldene Platte
+        // goldene Platte (abgerundetes Quadrat) wie im Designentwurf
+        val half = c * 1.21f
+        rect.set(mx - half, my - half, mx + half, my + half)
         paint.style = Paint.Style.FILL
-        paint.shader = android.graphics.LinearGradient(mx - c, my - c, mx + c, my + c, intArrayOf(0xFFF8DF91.toInt(), 0xFFB7862E.toInt(), 0xFFF0CF70.toInt()), floatArrayOf(0f, 0.65f, 1f), Shader.TileMode.CLAMP)
-        canvas.drawCircle(mx, my, c * 1.0f, paint)
+        paint.color = 0x88000000.toInt()
+        canvas.drawRoundRect(rect.left, rect.top + c * 0.1f, rect.right, rect.bottom + c * 0.1f, half * 0.5f, half * 0.5f, paint)
+        paint.shader = android.graphics.LinearGradient(
+            rect.left, rect.top, rect.right, rect.bottom,
+            intArrayOf(0xFFF8DF91.toInt(), 0xFFB7862E.toInt(), 0xFFF0CF70.toInt()), floatArrayOf(0f, 0.65f, 1f), Shader.TileMode.CLAMP
+        )
+        canvas.drawRoundRect(rect, half * 0.5f, half * 0.5f, paint)
         paint.shader = null
         paint.style = Paint.Style.STROKE
-        paint.strokeWidth = c * 0.07f
-        paint.color = 0xFF8A6D1B.toInt()
-        canvas.drawCircle(mx, my, c * 1.0f, paint)
-        // dunkle Mulde, damit der goldene Würfel sich abhebt
-        paint.style = Paint.Style.FILL
-        paint.shader = RadialGradient(mx, my, c * 0.85f, 0xFF1D5430.toInt(), 0xFF0A2412.toInt(), Shader.TileMode.CLAMP)
-        canvas.drawCircle(mx, my, c * 0.84f, paint)
-        paint.shader = null
-        paint.style = Paint.Style.STROKE
-        paint.strokeWidth = c * 0.04f
-        paint.color = 0xFFFFE38A.toInt()
-        canvas.drawCircle(mx, my, c * 0.84f, paint)
+        paint.strokeWidth = c * 0.08f
+        paint.color = 0xFFF8E5A6.toInt()
+        canvas.drawRoundRect(rect, half * 0.5f, half * 0.5f, paint)
+        paint.strokeWidth = c * 0.025f
+        paint.color = 0x99FFFFFF.toInt()
+        rect.inset(half * 0.16f, half * 0.16f)
+        canvas.drawRoundRect(rect, half * 0.4f, half * 0.4f, paint)
 
-        // Würfel
-        val ay = Math.toRadians(spin.toDouble()).toFloat()
-        val ax = 0.55f + 0.25f * sin(ay * 2f)
-        val k = c * 0.37f
+        // Würfel: Ruhe-Drehung, Wurf-Drehung oder Stand auf dem Ergebnis
+        val ay: Float
+        val ax: Float
+        when {
+            cubeMode != CubeMode.IDLE -> {
+                ay = cubeAy
+                ax = cubeAx
+            }
+            reducedMotion -> {
+                ay = 0.45f
+                ax = -0.3f
+            }
+            else -> {
+                val d = Math.toRadians((spin - idleSpinStart).toDouble()).toFloat()
+                ay = idleBaseAy + d
+                ax = idleBaseAx + 0.2f * sin(d * 2f)
+            }
+        }
+        val k = c * 0.42f
+        // Schatten des Würfels auf der Platte
+        paint.style = Paint.Style.FILL
+        paint.color = 0x44000000
+        canvas.drawOval(mx - k * 1.2f, my + k * 1.15f, mx + k * 1.2f, my + k * 1.6f, paint)
         val lx = -0.35f
         val ly = -0.55f
         val lz = 0.75f
@@ -502,17 +617,17 @@ class BoardView(context: Context) : View(context) {
                 (Color.blue(a) * f2).toInt().coerceAtMost(255)
             )
             paint.style = Paint.Style.FILL
-            paint.color = mixc(0xFFF2D27A.toInt(), shade)
+            paint.color = mixc(0xFFFFE9A6.toInt(), shade)
             canvas.drawPath(path, paint)
             paint.style = Paint.Style.STROKE
             paint.strokeWidth = c * 0.05f
             paint.strokeJoin = Paint.Join.ROUND
-            paint.color = mixc(0xFFB98A1E.toInt(), shade)
+            paint.color = mixc(0xFFD7A63B.toInt(), shade)
             canvas.drawPath(path, paint)
             paint.strokeJoin = Paint.Join.MITER
             // Augen
             paint.style = Paint.Style.FILL
-            paint.color = 0xFF1B3A2B.toInt()
+            paint.color = 0xFF103626.toInt()
             for ((a, b) in pipGrid(f.pips)) {
                 val px = f.n[0] + a * f.u[0] * 1.2f + b * f.v[0] * 1.2f
                 val py = f.n[1] + a * f.u[1] * 1.2f + b * f.v[1] * 1.2f
@@ -597,7 +712,7 @@ class BoardView(context: Context) : View(context) {
         } else {
             val mx = e.x - 5.5f * c
             val my = e.y - 5.5f * c
-            if (mx * mx + my * my < (0.95f * c) * (0.95f * c)) {
+            if (kotlin.math.abs(mx) < 1.2f * c && kotlin.math.abs(my) < 1.2f * c) {
                 performClick()
                 onCenterTap?.invoke()
             }

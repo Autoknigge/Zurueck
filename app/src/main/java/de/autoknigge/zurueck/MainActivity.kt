@@ -688,6 +688,7 @@ class MainActivity : AppCompatActivity() {
         val g = game ?: return
         busy = false
         board.movable = emptySet()
+        board.resumeIdle()
         dice.accent = BoardView.palette[g.current]
         updateChips()
         saveGame()
@@ -720,6 +721,7 @@ class MainActivity : AppCompatActivity() {
         busy = true
         val value = g.roll()
         dice.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+        board.rollCube(value)
         dice.roll(value) { later(50) { afterRoll() } }
     }
 
