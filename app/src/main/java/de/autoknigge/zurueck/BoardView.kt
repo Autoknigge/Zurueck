@@ -453,6 +453,14 @@ class BoardView(context: Context) : View(context) {
         paint.strokeWidth = c * 0.07f
         paint.color = 0xCC140B05.toInt()
         canvas.drawCircle(x, y, r, paint)
+        if (style == 5) {
+            // Granit: Felder in leichtem Goldton umrandet
+            paint.strokeWidth = c * 0.04f
+            paint.color = 0xFFD2AE5E.toInt()
+            paint.alpha = 215
+            canvas.drawCircle(x, y, r + c * 0.025f, paint)
+            paint.alpha = 255
+        }
     }
 
     private fun drawWoodFields(canvas: Canvas, c: Float, burnt: Boolean) {
@@ -695,6 +703,17 @@ class BoardView(context: Context) : View(context) {
         canvas.drawOval(x - r * 0.95f, y + r * 0.55f, x + r * 0.95f, y + r * 1.15f, paint)
         paint.color = shade(base, 0.4f)
         canvas.drawCircle(x, y, r + c * 0.03f, paint)
+        // kleine Goldumrandung, besonders bei dunklen Figuren auf dunklem Brett
+        val lumT = (0.299f * Color.red(base) + 0.587f * Color.green(base) + 0.114f * Color.blue(base)) / 255f
+        if (style == 3 || style == 4 || style == 5) {
+            paint.style = Paint.Style.STROKE
+            paint.strokeWidth = c * (if (lumT < 0.5f) 0.045f else 0.03f)
+            paint.color = 0xFFDDB75E.toInt()
+            paint.alpha = if (lumT < 0.5f) 255 else 170
+            canvas.drawCircle(x, y, r + c * 0.02f, paint)
+            paint.alpha = 255
+            paint.style = Paint.Style.FILL
+        }
         paint.shader = tex(woodRes[col], r * 2.6f / 512f, x - r * 1.3f, y - r * 1.3f)
         canvas.drawCircle(x, y, r, paint)
         paint.shader = RadialGradient(
