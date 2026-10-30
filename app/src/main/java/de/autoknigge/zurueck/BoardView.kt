@@ -26,6 +26,9 @@ class BoardView(context: Context) : View(context) {
         val COLORS = intArrayOf(0xFFD94B45.toInt(), 0xFF29A66C.toInt(), 0xFFEFBD3D.toInt(), 0xFF3D82DF.toInt())
         /** Erdfarben für Design C (heißen Rot, Grün, Gelb, Braun). */
         val EARTH = intArrayOf(0xFFB8432A.toInt(), 0xFF7F9A2C.toInt(), 0xFFE8A61E.toInt(), 0xFF7A4A2B.toInt())
+        /** Hölzer für Design D: Kirsche (rötlich), Eiche (grünlich-braun gebeizt wird nicht – daher Eiche mittel), Ahorn (hell), Nussbaum (dunkel). */
+        val WOOD = intArrayOf(0xFFB5502D.toInt(), 0xFFA8793F.toInt(), 0xFFE9CB93.toInt(), 0xFF5A3720.toInt())
+        val NAMES_WOOD = arrayOf("Kirsche", "Eiche", "Ahorn", "Nussbaum")
         val NAMES_STD = arrayOf("Rot", "Grün", "Gelb", "Blau")
         val NAMES_EARTH = arrayOf("Rot", "Grün", "Gelb", "Braun")
 
@@ -53,12 +56,20 @@ class BoardView(context: Context) : View(context) {
             invalidate()
         }
 
-    /** Design: 0 = A (grüner Filz), 1 = B (hell), 2 = C (dunkelgrün mit Erdfarben). */
+    /** Design: 0 = A (grüner Filz), 1 = B (hell), 2 = C (dunkelgrün mit Erdfarben), 3 = D (dunkles Holz). */
     var style = 0
         set(v) {
             field = v
-            palette = if (v == 2) EARTH else COLORS
-            names = if (v == 2) NAMES_EARTH else NAMES_STD
+            palette = when (v) {
+                2 -> EARTH
+                3 -> WOOD
+                else -> COLORS
+            }
+            names = when (v) {
+                2 -> NAMES_EARTH
+                3 -> NAMES_WOOD
+                else -> NAMES_STD
+            }
             invalidate()
         }
 
@@ -132,7 +143,11 @@ class BoardView(context: Context) : View(context) {
     }
 
     override fun onDraw(canvas: Canvas) {
-        if (style == 1) drawClassic(canvas) else drawFelt(canvas, style == 2)
+        when (style) {
+            1 -> drawClassic(canvas)
+            3 -> drawWood(canvas)
+            else -> drawFelt(canvas, style == 2)
+        }
     }
 
     private fun mix(a: Int, b: Int, t: Float): Int = Color.rgb(
@@ -353,6 +368,10 @@ class BoardView(context: Context) : View(context) {
      * dunklem Punkt in der Mitte. Der Punkt blinkt bei Figuren, die gezogen werden dürfen.
      */
     private fun drawToken(canvas: Canvas, col: Int, x: Float, y: Float, c: Float, scale: Float, hint: Boolean) {
+        if (style == 3) {
+            drawWoodToken(canvas, col, x, y, c, scale, hint)
+            return
+        }
         val base = palette[col]
         val r = c * 0.37f * scale
         if (hint) {
@@ -399,6 +418,258 @@ class BoardView(context: Context) : View(context) {
 
     private fun darker(col: Int): Int =
         Color.rgb((Color.red(col) * 0.55f).toInt(), (Color.green(col) * 0.55f).toInt(), (Color.blue(col) * 0.55f).toInt())
+
+    // ---------------------------------------------------------------- Design D: dunkles Holz
+
+    private val woodCache = HashMap<Int, android.graphics.Bitmap>()
+
+    /** Erzeugt (einmal) eine kachelbare Holzmaserung in der Grundfarbe [base]. */
+    private fun woodTexture(base: Int): android.graphics.Bitmap = woodCache.getOrPut(base) {
+        val size = 256
+        val bmp = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+        val cv = Canvas(bmp)
+        val rnd = kotlin.random.Random(base)
+        val p = Paint(Paint.ANTI_ALIAS_FLAG)
+        p.style = Paint.Style.FILL
+        p.color = base
+        cv.drawRect(0f, 0f, size.toFloat(), size.toFloat(), p)
+        // breite, weiche Bänder
+        for (i in 0 until 18) {
+            val y = rnd.nextFloat() * size
+            val h = 6f + rnd.nextFloat() * 22f
+            p.color = if (rnd.nextBoolean()) shade(base, 0.82f) else shade(base, 1.12f)
+            p.alpha = 30 + rnd.nextInt(40)
+            cv.drawRect(0f, y, size.toFloat(), y + h, p)
+            // Kachelrand: oben herausragendes Band unten wiederholen
+            if (y + h > size) cv.drawRect(0f, y - size, size.toFloat(), y + h - size, p)
+        }
+        // feine Maserlinien, leicht gewellt
+        p.style = Paint.Style.STROKE
+        p.strokeCap = Paint.Cap.ROUND
+        val path = android.graphics.Path()
+        for (i in 0 until 90) {
+            val y = rnd.nextFloat() * size
+            val amp = 1f + rnd.nextFloat() * 5f
+            val freq = 0.012f + rnd.nextFloat() * 0.03f
+            val phase = rnd.nextFloat() * 6.28f
+            p.strokeWidth = 0.6f + rnd.nextFloat() * 2f
+            p.color = if (rnd.nextFloat() < 0.65f) shade(base, 0.62f) else shade(base, 1.25f)
+            p.alpha = 25 + rnd.nextInt(80)
+            path.reset()
+            path.moveTo(0f, y)
+            var x = 0f
+            while (x <= size) {
+                x += 8f
+                path.lineTo(x, y + amp * sin(x * freq * 6.28f + phase))
+            }
+            cv.drawPath(path, p)
+        }
+        // Poren: winzige dunkle Striche
+        p.strokeWidth = 1f
+        for (i in 0 until 260) {
+            val x = rnd.nextFloat() * size
+            val y = rnd.nextFloat() * size
+            p.color = shade(base, 0.5f)
+            p.alpha = 30 + rnd.nextInt(50)
+            cv.drawLine(x, y, x + 3f + rnd.nextFloat() * 8f, y, p)
+        }
+        bmp
+    }
+
+    private fun shade(col: Int, f: Float): Int = Color.rgb(
+        (Color.red(col) * f).toInt().coerceIn(0, 255),
+        (Color.green(col) * f).toInt().coerceIn(0, 255),
+        (Color.blue(col) * f).toInt().coerceIn(0, 255)
+    )
+
+    private fun woodShader(base: Int, scale: Float, dx: Float, dy: Float): android.graphics.BitmapShader {
+        val sh = android.graphics.BitmapShader(woodTexture(base), Shader.TileMode.REPEAT, Shader.TileMode.REPEAT)
+        val m = android.graphics.Matrix()
+        m.setScale(scale, scale)
+        m.postTranslate(dx, dy)
+        sh.setLocalMatrix(m)
+        return sh
+    }
+
+    private val brass = 0xFFC9A648.toInt()
+
+    private fun drawWood(canvas: Canvas) {
+        val c = cell()
+        val s = c * 11f
+        val g = game
+        val ts = s / 256f * 1.4f
+        // Rahmen aus Mahagoni
+        rect.set(0f, 0f, s, s)
+        paint.style = Paint.Style.FILL
+        paint.shader = woodShader(0xFF6B2E1B.toInt(), ts, 0f, 0f)
+        canvas.drawRoundRect(rect, c * 0.75f, c * 0.75f, paint)
+        paint.shader = android.graphics.LinearGradient(0f, 0f, s, s, 0x55FFFFFF, 0x66000000, Shader.TileMode.CLAMP)
+        canvas.drawRoundRect(rect, c * 0.75f, c * 0.75f, paint)
+        paint.shader = null
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = c * 0.05f
+        paint.color = brass
+        rect.set(c * 0.08f, c * 0.08f, s - c * 0.08f, s - c * 0.08f)
+        canvas.drawRoundRect(rect, c * 0.68f, c * 0.68f, paint)
+        // Brettfläche aus dunklem Nussbaum
+        val f = c * 0.2f
+        rect.set(f, f, s - f, s - f)
+        paint.style = Paint.Style.FILL
+        paint.shader = woodShader(0xFF3A2314.toInt(), ts, 30f, 10f)
+        canvas.drawRoundRect(rect, c * 0.55f, c * 0.55f, paint)
+        paint.shader = RadialGradient(s / 2, s / 2, s * 0.7f, 0x00000000, 0x99000000.toInt(), Shader.TileMode.CLAMP)
+        canvas.drawRoundRect(rect, c * 0.55f, c * 0.55f, paint)
+        paint.shader = null
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = c * 0.04f
+        paint.color = 0xFF1A0F08.toInt()
+        canvas.drawRoundRect(rect, c * 0.55f, c * 0.55f, paint)
+
+        // Eingelassene Bahnen
+        paint.style = Paint.Style.FILL
+        paint.color = 0x40000000
+        rect.set(0.4f * c, 3.62f * c, s - 0.4f * c, 7.38f * c)
+        canvas.drawRoundRect(rect, c * 0.45f, c * 0.45f, paint)
+        rect.set(3.62f * c, 0.4f * c, 7.38f * c, s - 0.4f * c)
+        canvas.drawRoundRect(rect, c * 0.45f, c * 0.45f, paint)
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = c * 0.03f
+        paint.color = 0xFF150C06.toInt()
+        rect.set(0.4f * c, 3.62f * c, s - 0.4f * c, 7.38f * c)
+        canvas.drawRoundRect(rect, c * 0.45f, c * 0.45f, paint)
+        rect.set(3.62f * c, 0.4f * c, 7.38f * c, s - 0.4f * c)
+        canvas.drawRoundRect(rect, c * 0.45f, c * 0.45f, paint)
+
+        // Heimat: Messingringe, keine Fläche
+        for (col in 0 until 4) {
+            val activeSeat = g != null && g.seat(col).kind != Kind.OFF
+            for ((sc, sr) in Game.HOME[col]) {
+                val x = cx(sc.toFloat())
+                val y = cx(sr.toFloat())
+                paint.shader = null
+                paint.style = Paint.Style.STROKE
+                paint.strokeWidth = c * 0.09f
+                paint.color = brass
+                paint.alpha = if (activeSeat) 255 else 70
+                canvas.drawCircle(x, y, c * 0.4f, paint)
+                paint.strokeWidth = c * 0.03f
+                paint.color = 0xFFF0D98A.toInt()
+                canvas.drawCircle(x, y, c * 0.35f, paint)
+                paint.alpha = 255
+            }
+        }
+        // Ringfelder: eingefräste Mulden mit hellem Rand unten
+        for ((i, cl) in Game.TRACK_CELLS.withIndex()) {
+            val x = cx(cl.first.toFloat())
+            val y = cx(cl.second.toFloat())
+            val startOf = Game.START.indexOf(i)
+            val r = c * 0.4f
+            paint.style = Paint.Style.FILL
+            paint.shader = RadialGradient(x, y - r * 0.25f, r * 1.3f, 0xFF120A05.toInt(), 0xFF3B2414.toInt(), Shader.TileMode.CLAMP)
+            canvas.drawCircle(x, y, r, paint)
+            paint.shader = null
+            paint.style = Paint.Style.STROKE
+            paint.strokeWidth = c * 0.05f
+            paint.color = 0xFF8A6642.toInt()
+            canvas.drawArc(x - r, y - r, x + r, y + r, 20f, 140f, false, paint)
+            if (startOf >= 0) {
+                paint.strokeWidth = c * 0.09f
+                paint.color = palette[startOf]
+                canvas.drawCircle(x, y, r * 0.8f, paint)
+            }
+        }
+        // Zielfelder: kleine Holzeinlagen in der Spielerfarbe
+        for (col in 0 until 4) {
+            for ((sc, sr) in Game.LANE[col]) {
+                val x = cx(sc.toFloat())
+                val y = cx(sr.toFloat())
+                val r = c * 0.4f
+                paint.style = Paint.Style.FILL
+                paint.color = 0x66000000
+                canvas.drawCircle(x, y + c * 0.04f, r, paint)
+                paint.shader = woodShader(palette[col], c / 256f * 2f, x, y)
+                canvas.drawCircle(x, y, r * 0.92f, paint)
+                paint.shader = RadialGradient(x - r * 0.3f, y - r * 0.35f, r * 1.3f, 0x30FFFFFF, 0x55000000, Shader.TileMode.CLAMP)
+                canvas.drawCircle(x, y, r * 0.92f, paint)
+                paint.shader = null
+                paint.style = Paint.Style.STROKE
+                paint.strokeWidth = c * 0.04f
+                paint.color = brass
+                canvas.drawCircle(x, y, r, paint)
+            }
+        }
+        drawCenter(canvas, c)
+
+        if (g == null) return
+        for (animated in listOf(false, true)) {
+            val list = ArrayList<Triple<Int, Int, Triple<Float, Float, Float>>>()
+            for (col in 0 until 4) {
+                if (g.seat(col).kind == Kind.OFF) continue
+                for (fig in 0 until 4) {
+                    val a = anims[col * 4 + fig]
+                    if ((a != null) != animated) continue
+                    val t = if (a != null) {
+                        Triple(a.pt.x, a.pt.y, a.scale)
+                    } else {
+                        val cl = Game.cellOf(col, fig, g.pos[col][fig])
+                        Triple(cl.first.toFloat(), cl.second.toFloat(), 1f)
+                    }
+                    list.add(Triple(col, fig, t))
+                }
+            }
+            for ((col, fig, t) in list.sortedBy { it.third.second }) {
+                drawToken(canvas, col, cx(t.first), cx(t.second), c, t.third, (col * 4 + fig) in movable)
+            }
+        }
+    }
+
+    /** Spielstein aus Holz: gedrechselte Scheibe mit Maserung, Lackglanz und Punkt in der Mitte. */
+    private fun drawWoodToken(canvas: Canvas, col: Int, x: Float, y: Float, c: Float, scale: Float, hint: Boolean) {
+        val base = palette[col]
+        val r = c * 0.37f * scale
+        if (hint) {
+            paint.style = Paint.Style.STROKE
+            paint.strokeWidth = c * 0.09f
+            paint.color = 0xFFFFE38A.toInt()
+            paint.alpha = (150 + 105 * pulse).toInt()
+            canvas.drawCircle(x, y, r + c * (0.1f + 0.07f * pulse), paint)
+            paint.alpha = 255
+        }
+        paint.style = Paint.Style.FILL
+        paint.shader = null
+        paint.color = 0x77000000
+        canvas.drawOval(x - r * 0.95f, y + r * 0.55f, x + r * 0.95f, y + r * 1.15f, paint)
+        // Kante
+        paint.color = shade(base, 0.45f)
+        canvas.drawCircle(x, y, r + c * 0.03f, paint)
+        // Maserung
+        paint.shader = woodShader(base, c / 256f * 2.4f, x - r, y - r)
+        canvas.drawCircle(x, y, r, paint)
+        // Rundung: heller links oben, dunkler am Rand
+        paint.shader = RadialGradient(
+            x - r * 0.35f, y - r * 0.4f, r * 1.5f,
+            intArrayOf(0x55FFFFFF, 0x00000000, 0x66000000), floatArrayOf(0f, 0.55f, 1f), Shader.TileMode.CLAMP
+        )
+        canvas.drawCircle(x, y, r, paint)
+        paint.shader = null
+        // gedrechselter Ring
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = c * 0.035f
+        paint.color = shade(base, 0.6f)
+        paint.alpha = 190
+        canvas.drawCircle(x, y, r * 0.78f, paint)
+        paint.alpha = 255
+        // Punkt: eingebrannt dunkel auf hellem Holz, eingelegt hell auf dunklem
+        val lum = (0.299f * Color.red(base) + 0.587f * Color.green(base) + 0.114f * Color.blue(base)) / 255f
+        paint.style = Paint.Style.FILL
+        paint.color = if (lum > 0.5f) 0xFF2B1608.toInt() else 0xFFF3DFA8.toInt()
+        paint.alpha = if (hint) (90 + 165 * pulse).toInt() else 255
+        canvas.drawCircle(x, y, r * 0.34f, paint)
+        paint.alpha = 255
+        // Lackglanz
+        paint.color = 0x88FFFFFF.toInt()
+        canvas.drawCircle(x - r * 0.42f, y - r * 0.5f, r * 0.16f, paint)
+    }
 
     // ---------------------------------------------------------------- Mitte: runde Platte mit drehendem 3D-Würfel
 
