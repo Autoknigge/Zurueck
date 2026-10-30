@@ -184,28 +184,22 @@ class BoardView(context: Context) : View(context) {
         rect.set(3.62f * c, 0.4f * c, 7.38f * c, s - 0.4f * c)
         canvas.drawRoundRect(rect, c * 0.45f, c * 0.45f, paint)
 
-        // Heimat: je Farbe vier goldgelbe Kreise (keine Platte); stehen Figuren zu Hause, sitzen sie darauf
+        // Heimat: je Farbe vier goldgelbe Kreise nur als Rand (keine Fläche); stehen Figuren zu Hause, sitzen sie darin
         for (col in 0 until 4) {
             val activeSeat = g != null && g.seat(col).kind != Kind.OFF
             for ((sc, sr) in Game.HOME[col]) {
                 val x = cx(sc.toFloat())
                 val y = cx(sr.toFloat())
-                val r = c * 0.4f
-                paint.style = Paint.Style.FILL
-                paint.color = 0x55000000
-                canvas.drawCircle(x, y + c * 0.05f, r, paint)
-                paint.shader = RadialGradient(x - r * 0.3f, y - r * 0.35f, r * 1.4f, 0xFFFFE9A0.toInt(), 0xFFD9A93A.toInt(), Shader.TileMode.CLAMP)
-                paint.alpha = if (activeSeat) 255 else 70
-                canvas.drawCircle(x, y, r, paint)
                 paint.shader = null
                 paint.style = Paint.Style.STROKE
-                paint.strokeWidth = c * 0.06f
-                paint.color = 0xFF8A6D1B.toInt()
-                canvas.drawCircle(x, y, r, paint)
-                // dünner Ring in der Spielerfarbe zeigt, wem der Platz gehört
-                paint.strokeWidth = c * 0.05f
-                paint.color = palette[col]
-                canvas.drawCircle(x, y, r + c * 0.06f, paint)
+                paint.strokeWidth = c * 0.1f
+                paint.color = if (style == 1) 0xFF9A7418.toInt() else 0xFFE8BC3E.toInt()
+                paint.alpha = if (activeSeat) 255 else 70
+                canvas.drawCircle(x, y, c * 0.4f, paint)
+                // zarter heller Innenrand für etwas Tiefe
+                paint.strokeWidth = c * 0.03f
+                paint.color = if (style == 1) 0xFFD6B25A.toInt() else 0xFFFFF0B0.toInt()
+                canvas.drawCircle(x, y, c * 0.35f, paint)
                 paint.alpha = 255
             }
         }
@@ -289,28 +283,22 @@ class BoardView(context: Context) : View(context) {
         canvas.drawRoundRect(rect, c * 0.5f, c * 0.5f, paint)
 
         val g = game
-        // Heimat: je Farbe vier goldgelbe Kreise (keine Platte); stehen Figuren zu Hause, sitzen sie darauf
+        // Heimat: je Farbe vier goldgelbe Kreise nur als Rand (keine Fläche); stehen Figuren zu Hause, sitzen sie darin
         for (col in 0 until 4) {
             val activeSeat = g != null && g.seat(col).kind != Kind.OFF
             for ((sc, sr) in Game.HOME[col]) {
                 val x = cx(sc.toFloat())
                 val y = cx(sr.toFloat())
-                val r = c * 0.4f
-                paint.style = Paint.Style.FILL
-                paint.color = 0x55000000
-                canvas.drawCircle(x, y + c * 0.05f, r, paint)
-                paint.shader = RadialGradient(x - r * 0.3f, y - r * 0.35f, r * 1.4f, 0xFFFFE9A0.toInt(), 0xFFD9A93A.toInt(), Shader.TileMode.CLAMP)
-                paint.alpha = if (activeSeat) 255 else 70
-                canvas.drawCircle(x, y, r, paint)
                 paint.shader = null
                 paint.style = Paint.Style.STROKE
-                paint.strokeWidth = c * 0.06f
-                paint.color = 0xFF8A6D1B.toInt()
-                canvas.drawCircle(x, y, r, paint)
-                // dünner Ring in der Spielerfarbe zeigt, wem der Platz gehört
-                paint.strokeWidth = c * 0.05f
-                paint.color = palette[col]
-                canvas.drawCircle(x, y, r + c * 0.06f, paint)
+                paint.strokeWidth = c * 0.1f
+                paint.color = if (style == 1) 0xFF9A7418.toInt() else 0xFFE8BC3E.toInt()
+                paint.alpha = if (activeSeat) 255 else 70
+                canvas.drawCircle(x, y, c * 0.4f, paint)
+                // zarter heller Innenrand für etwas Tiefe
+                paint.strokeWidth = c * 0.03f
+                paint.color = if (style == 1) 0xFFD6B25A.toInt() else 0xFFFFF0B0.toInt()
+                canvas.drawCircle(x, y, c * 0.35f, paint)
                 paint.alpha = 255
             }
         }
