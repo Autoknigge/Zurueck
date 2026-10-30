@@ -438,7 +438,7 @@ class BoardView(context: Context) : View(context) {
 
     /** Hölzer der Spielsteine in der Reihenfolge der Spieler: Kirsche, Eiche, Ahorn, Nussbaum. */
     private val woodRes0 = intArrayOf(R.drawable.wood_kirsche, R.drawable.wood_eiche, R.drawable.wood_ahorn, R.drawable.wood_nussbaum)
-    private val stoneRes = intArrayOf(R.drawable.stone_granit, R.drawable.stone_serpentin, R.drawable.stone_sandstein, R.drawable.stone_basalt)
+    private val stoneRes = intArrayOf(R.drawable.stone_porphyr, R.drawable.stone_serpentin, R.drawable.stone_sandstein, R.drawable.stone_basalt)
     private val woodRes: IntArray get() = if (style == 5) stoneRes else woodRes0
 
     private val brass = 0xFFC9A648.toInt()
