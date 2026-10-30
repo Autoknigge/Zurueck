@@ -286,10 +286,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     /** Wechselt das Brett-Design A → B → C → A und merkt es sich. */
+    private val STYLE_ORDER = intArrayOf(3, 0, 1, 2, 4)
+
     private fun cycleStyle() {
-        val v = (prefs.getInt("board_style", 0) + 1) % 5
-        prefs.edit().putInt("board_style", v).apply()
-        board.style = v
+        val pos = (prefs.getInt("design_pos", 0) + 1) % 5
+        prefs.edit().putInt("design_pos", pos).apply()
+        board.style = STYLE_ORDER[pos]
         clickSound?.play(clickId, 0.7f, 0.7f, 1, 0, 1f)
         updateSetup()
         game?.let {
@@ -321,11 +323,11 @@ class MainActivity : AppCompatActivity() {
             nameFields[i].isEnabled = kinds[i] != Kind.OFF
         }
         levelButton.text = "Computer-Stufe: " + if (easy) "Leicht" else "Normal"
-        designButton.text = "Brett-Design: " + when (prefs.getInt("board_style", 0)) {
-            0 -> "A (grüner Filz)"
-            1 -> "B (hell)"
-            2 -> "C (dunkelgrün, Erdfarben)"
-            3 -> "D (dunkles Holz)"
+        designButton.text = "Brett-Design: " + when (prefs.getInt("design_pos", 0)) {
+            0 -> "A (dunkles Holz)"
+            1 -> "B (grüner Filz)"
+            2 -> "C (hell)"
+            3 -> "D (dunkelgrün, Erdfarben)"
             else -> "E (Naturholz mit Rinde)"
         }
         for (i in 0 until 4) {
@@ -457,7 +459,7 @@ class MainActivity : AppCompatActivity() {
                     "• Landest du auf einer fremden Figur, wird sie geschlagen und muss zurück ins Haus.\n" +
                     "• Eigene Figuren dürfen nicht auf eigene Figuren ziehen. Steht eine Figur auf dem Startfeld, muss sie bei einer 6 zuerst weiterziehen.\n" +
                     "• Nach einem Umlauf geht es in die Zielfelder. Dort musst du die Zahl nicht genau treffen, aber nicht über das letzte Feld hinaus.\n\n" +
-                    "Tipp: Ein Druck auf die Mitte des Bretts wechselt zwischen den fünf Designs A bis E (D und E aus Holz). Das geht auch im Menü."
+                    "Tipp: Ein Druck auf die Mitte des Bretts wechselt zwischen den fünf Designs A bis E (A und E aus Holz). Das geht auch im Menü."
             )
             .setPositiveButton("Verstanden", null)
             .show()
@@ -529,7 +531,7 @@ class MainActivity : AppCompatActivity() {
         // Brett (mit Goldrahmen, gezeichnet in der BoardView)
         board = BoardView(this)
         board.onFigure = { color, fig -> onFigureTapped(color, fig) }
-        board.style = prefs.getInt("board_style", 0)
+        board.style = STYLE_ORDER[prefs.getInt("design_pos", 0).coerceIn(0, 4)]
         board.onCenterTap = {
             cycleStyle()
             board.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)

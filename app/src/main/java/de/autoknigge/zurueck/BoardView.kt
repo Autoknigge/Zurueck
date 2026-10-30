@@ -849,12 +849,28 @@ class BoardView(context: Context) : View(context) {
         return floatArrayOf(x1, y * cx - z1 * sx, y * sx + z1 * cx)
     }
 
+    private val quad = FloatArray(8)
+
+    /** Verkleinert das Viereck in [quad] zur Mitte hin; mit dicker, runder Kontur wirkt der Würfel abgerundet. */
+    private fun rounded(f: Float): android.graphics.Path {
+        val out = android.graphics.Path()
+        val sx = (quad[0] + quad[2] + quad[4] + quad[6]) / 4f
+        val sy = (quad[1] + quad[3] + quad[5] + quad[7]) / 4f
+        for (i in 0 until 4) {
+            val x = sx + (quad[i * 2] - sx) * f
+            val y = sy + (quad[i * 2 + 1] - sy) * f
+            if (i == 0) out.moveTo(x, y) else out.lineTo(x, y)
+        }
+        out.close()
+        return out
+    }
+
     private fun drawCenter(canvas: Canvas, c: Float) {
         val mx = 5.5f * c
         val my = 5.5f * c
         val wooden = style >= 3
         val marble = style == 1 || style == 2
-        if (!wooden) {
+        if (false) {
             // goldene Platte (abgerundetes Quadrat) wie im Designentwurf
             val half = c * 1.21f
             rect.set(mx - half, my - half, mx + half, my + half)
@@ -896,7 +912,7 @@ class BoardView(context: Context) : View(context) {
                 ax = idleBaseAx + 0.2f * sin(d * 2f)
             }
         }
-        val k = c * (if (wooden) 0.5f else 0.42f)
+        val k = c * (if (wooden) 0.62f else 0.55f)
         // Schatten des Würfels auf der Platte
         paint.style = Paint.Style.FILL
         paint.color = 0x44000000
@@ -915,6 +931,8 @@ class BoardView(context: Context) : View(context) {
                 val py = f.n[1] + q.first * f.u[1] + q.second * f.v[1]
                 val pz = f.n[2] + q.first * f.u[2] + q.second * f.v[2]
                 val r = rot(px, py, pz, ay, ax)
+                quad[i * 2] = mx + r[0] * k
+                quad[i * 2 + 1] = my + r[1] * k
                 if (i == 0) path.moveTo(mx + r[0] * k, my + r[1] * k) else path.lineTo(mx + r[0] * k, my + r[1] * k)
             }
             path.close()
@@ -927,19 +945,22 @@ class BoardView(context: Context) : View(context) {
             )
             paint.style = Paint.Style.FILL
             if (wooden) {
-                // heller Holzwürfel mit dunklen Augen und abgerundeten Kanten
-                paint.shader = tex(R.drawable.wood_ahorn, c * 1.3f / 512f, mx - c, my - c)
-                canvas.drawPath(path, paint)
-                paint.shader = null
-                paint.color = Color.argb(((1.08f - shade) * 160f).toInt().coerceIn(0, 60), 0, 0, 0)
-                canvas.drawPath(path, paint)
+                // heller Holzwürfel wie die Vorlage: weich gerundete Ecken, schlichte Maserung
+                val rp = rounded(0.86f)
+                paint.shader = tex(R.drawable.wood_ahorn, c * 1.4f / 512f, mx - c, my - c)
+                canvas.drawPath(rp, paint)
                 paint.style = Paint.Style.STROKE
-                paint.strokeWidth = c * 0.05f
+                paint.strokeWidth = c * 0.3f
                 paint.strokeJoin = Paint.Join.ROUND
-                paint.color = mixc(0xFFE4C48C.toInt(), shade)
-                paint.alpha = 215
-                canvas.drawPath(path, paint)
-                paint.alpha = 255
+                canvas.drawPath(rp, paint)
+                paint.shader = null
+                paint.style = Paint.Style.FILL
+                paint.color = Color.argb(((1.08f - shade) * 220f).toInt().coerceIn(0, 50), 60, 30, 0)
+                canvas.drawPath(rp, paint)
+                paint.style = Paint.Style.STROKE
+                paint.strokeWidth = c * 0.3f
+                paint.color = Color.argb(((1.08f - shade) * 220f).toInt().coerceIn(0, 50), 60, 30, 0)
+                canvas.drawPath(rp, paint)
                 paint.strokeJoin = Paint.Join.MITER
             } else if (marble) {
                 // dunkelroter Marmor-Würfel mit Wirbeln und goldenen Augen
@@ -989,14 +1010,15 @@ class BoardView(context: Context) : View(context) {
                 canvas.drawPath(path, paint)
                 paint.strokeJoin = Paint.Join.MITER
             }
-            val pipColor = if (wooden) mixc(0xFF3A2412.toInt(), shade) else if (marble) 0xFFF2B93E.toInt() else 0xFF103626.toInt()
+            val pipColor = if (wooden) 0xFF2E1B0E.toInt() else if (marble) 0xFFF2B93E.toInt() else 0xFF103626.toInt()
+            val pr = if (wooden) 0.2f else 0.17f
             // Augen: flache Einkerbungen, in die Fläche gelegt und perspektivisch verkürzt
             for ((a, b) in pipGrid(f.pips)) {
                 pipPath.reset()
                 for (i in 0 until 14) {
                     val t = i * 2f * PI.toFloat() / 14f
-                    val da = a * 1.2f + 0.17f * kotlin.math.cos(t)
-                    val db = b * 1.2f + 0.17f * sin(t)
+                    val da = a * 1.2f + pr * kotlin.math.cos(t)
+                    val db = b * 1.2f + pr * sin(t)
                     val px = f.n[0] + da * f.u[0] + db * f.v[0]
                     val py = f.n[1] + da * f.u[1] + db * f.v[1]
                     val pz = f.n[2] + da * f.u[2] + db * f.v[2]
