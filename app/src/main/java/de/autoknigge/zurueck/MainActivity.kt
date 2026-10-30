@@ -287,7 +287,7 @@ class MainActivity : AppCompatActivity() {
 
     /** Wechselt das Brett-Design A → B → C → A und merkt es sich. */
     private fun cycleStyle() {
-        val v = (prefs.getInt("board_style", 0) + 1) % 4
+        val v = (prefs.getInt("board_style", 0) + 1) % 5
         prefs.edit().putInt("board_style", v).apply()
         board.style = v
         clickSound?.play(clickId, 0.7f, 0.7f, 1, 0, 1f)
@@ -325,7 +325,8 @@ class MainActivity : AppCompatActivity() {
             0 -> "A (grüner Filz)"
             1 -> "B (hell)"
             2 -> "C (dunkelgrün, Erdfarben)"
-            else -> "D (dunkles Holz)"
+            3 -> "D (dunkles Holz)"
+            else -> "E (Naturholz mit Rinde)"
         }
         for (i in 0 until 4) {
             nameFields[i].hint = BoardView.names[i]
@@ -456,7 +457,7 @@ class MainActivity : AppCompatActivity() {
                     "• Landest du auf einer fremden Figur, wird sie geschlagen und muss zurück ins Haus.\n" +
                     "• Eigene Figuren dürfen nicht auf eigene Figuren ziehen. Steht eine Figur auf dem Startfeld, muss sie bei einer 6 zuerst weiterziehen.\n" +
                     "• Nach einem Umlauf geht es in die Zielfelder. Dort musst du die Zahl nicht genau treffen, aber nicht über das letzte Feld hinaus.\n\n" +
-                    "Tipp: Ein Druck auf die Mitte des Bretts wechselt zwischen den vier Designs A, B, C und D (Holz). Das geht auch im Menü."
+                    "Tipp: Ein Druck auf die Mitte des Bretts wechselt zwischen den fünf Designs A bis E (D und E aus Holz). Das geht auch im Menü."
             )
             .setPositiveButton("Verstanden", null)
             .show()

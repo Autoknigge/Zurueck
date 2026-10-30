@@ -13,7 +13,7 @@ class Move(val color: Int, val fig: Int, val from: Int, val to: Int, val enters:
 
 /** Ergebnis eines ausgeführten Zuges für die Animation. */
 class MoveResult(
-    val path: List<Pair<Int, Int>>,
+    val path: List<Pair<Float, Float>>,
     val captured: List<Pair<Int, Int>>, // (Farbe, Figur)
     val reachedLane: Boolean
 )
@@ -54,10 +54,14 @@ class Game(val seats: List<Seat>) {
             listOf(0 to 9, 1 to 9, 0 to 10, 1 to 10)
         )
 
-        fun cellOf(color: Int, fig: Int, p: Int): Pair<Int, Int> = when {
-            p < 0 -> HOME[color][fig]
-            p < TRACK -> TRACK_CELLS[(START[color] + p) % TRACK]
-            else -> LANE[color][p - TRACK]
+        /** Die Heimat-Kreise sind ein Stück aus der Ecke Richtung Brettmitte gerückt (schmaler Abstand zum Rand). */
+        private val HOME_SHIFT = arrayOf(0.3f to 0.3f, -0.3f to 0.3f, -0.3f to -0.3f, 0.3f to -0.3f)
+
+        /** Lage einer Figur auf dem Brett in Rasterkoordinaten (Spalte, Zeile). */
+        fun cellOf(color: Int, fig: Int, p: Int): Pair<Float, Float> = when {
+            p < 0 -> HOME[color][fig].let { (a, b) -> a + HOME_SHIFT[color].first to b + HOME_SHIFT[color].second }
+            p < TRACK -> TRACK_CELLS[(START[color] + p) % TRACK].let { (a, b) -> a.toFloat() to b.toFloat() }
+            else -> LANE[color][p - TRACK].let { (a, b) -> a.toFloat() to b.toFloat() }
         }
     }
 
@@ -119,7 +123,7 @@ class Game(val seats: List<Seat>) {
 
     /** Führt den Zug aus und liefert den Weg und geschlagene Figuren für die Animation. */
     fun apply(m: Move): MoveResult {
-        val path = ArrayList<Pair<Int, Int>>()
+        val path = ArrayList<Pair<Float, Float>>()
         val captured = ArrayList<Pair<Int, Int>>()
         val from = m.from
         if (m.enters) {
