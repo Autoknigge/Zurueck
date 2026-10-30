@@ -1,6 +1,6 @@
 # Zurück
 
-Würfelspiel für 2 bis 4 Spieler (Menschen und Computer) an einem Gerät. Reihum würfeln, Figuren ins Ziel bringen, andere zurückschicken. Läuft ohne Internet; Google AdMob zeigt Werbung (Einwilligungsabfrage inklusive).
+Brettspiel für 1 bis 4 Personen (allein gegen den Computer oder mit Freunden) an einem Gerät. Reihum würfeln, Figuren ins Ziel bringen, andere zurückschicken. Läuft ohne Internet; Google AdMob zeigt Werbung (Einwilligungsabfrage inklusive).
 
 Paketname: `de.autoknigge.zurueck`
 

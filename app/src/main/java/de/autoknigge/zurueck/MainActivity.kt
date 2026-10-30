@@ -23,7 +23,7 @@ import androidx.core.view.WindowCompat
 import org.json.JSONArray
 import org.json.JSONObject
 
-/** Zurück – Würfelspiel für 2 bis 4 Spieler (Menschen und Computer) an einem Gerät. */
+/** Zurück – Brettspiel für 1 bis 4 Personen (Menschen und Computer) an einem Gerät. */
 class MainActivity : AppCompatActivity() {
 
     companion object {
@@ -224,7 +224,7 @@ class MainActivity : AppCompatActivity() {
             }
         )
         col.addView(logoBox, LinearLayout.LayoutParams(WRAP, WRAP).apply { gravity = Gravity.CENTER_HORIZONTAL })
-        col.addView(text("Würfelspiel für 2 bis 4 Spieler", 15f, DIM).apply { gravity = Gravity.CENTER })
+        col.addView(text("Brettspiel 1 - 4 Personen", 15f, DIM).apply { gravity = Gravity.CENTER })
 
         col.addView(text("Wer spielt mit?", 17f, TEXT, true), LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(22) })
         val kb = ArrayList<TextView>()
