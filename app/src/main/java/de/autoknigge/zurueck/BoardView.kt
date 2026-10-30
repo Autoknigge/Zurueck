@@ -23,7 +23,7 @@ import kotlin.math.sin
 class BoardView(context: Context) : View(context) {
 
     companion object {
-        val COLORS = intArrayOf(0xFFD3221F.toInt(), 0xFF1F9A3F.toInt(), 0xFFF5B81B.toInt(), 0xFF1E56C8.toInt())
+        val COLORS = intArrayOf(0xFFD94B45.toInt(), 0xFF29A66C.toInt(), 0xFFEFBD3D.toInt(), 0xFF3D82DF.toInt())
         /** Erdfarben für Design C (heißen Rot, Grün, Gelb, Braun). */
         val EARTH = intArrayOf(0xFFB8432A.toInt(), 0xFF7F9A2C.toInt(), 0xFFE8A61E.toInt(), 0xFF7A4A2B.toInt())
         val NAMES_STD = arrayOf("Rot", "Grün", "Gelb", "Blau")
@@ -129,61 +129,78 @@ class BoardView(context: Context) : View(context) {
         if (style == 1) drawClassic(canvas) else drawFelt(canvas, style == 2)
     }
 
+    private fun mix(a: Int, b: Int, t: Float): Int = Color.rgb(
+        (Color.red(a) * t + Color.red(b) * (1 - t)).toInt(),
+        (Color.green(a) * t + Color.green(b) * (1 - t)).toInt(),
+        (Color.blue(a) * t + Color.blue(b) * (1 - t)).toInt()
+    )
+
+    /** Design A und C: dunkelgrünes Brett mit Goldrahmen, Elfenbeinfeldern, farbigen Häusern und Zielfeldern. */
     private fun drawFelt(canvas: Canvas, earth: Boolean) {
         val c = cell()
         val s = c * 11f
         val g = game
-        // Brett: dunkelgrüner Filz mit goldenem Doppelrahmen
+        // Goldrahmen
         rect.set(0f, 0f, s, s)
         paint.style = Paint.Style.FILL
-        paint.shader = RadialGradient(
-            s / 2, s / 2, s * 0.75f,
-            if (earth) 0xFF0F4D24.toInt() else 0xFF145A2B.toInt(), if (earth) 0xFF03150A.toInt() else 0xFF082A12.toInt(), Shader.TileMode.CLAMP
+        paint.shader = android.graphics.LinearGradient(
+            0f, 0f, s, s,
+            intArrayOf(0xFFF4D980.toInt(), 0xFF98712B.toInt(), 0xFFF6DC8C.toInt(), 0xFF8E6726.toInt(), 0xFFF5D982.toInt()),
+            floatArrayOf(0f, 0.28f, 0.52f, 0.78f, 1f), Shader.TileMode.CLAMP
         )
-        canvas.drawRoundRect(rect, c * 0.7f, c * 0.7f, paint)
+        canvas.drawRoundRect(rect, c * 0.75f, c * 0.75f, paint)
+        // Brettfläche
+        val f = c * 0.16f
+        rect.set(f, f, s - f, s - f)
+        paint.shader = RadialGradient(
+            s / 2, s * 0.45f, s * 0.7f,
+            if (earth) 0xFF14402A.toInt() else 0xFF163D2B.toInt(), if (earth) 0xFF06170D.toInt() else 0xFF0B2419.toInt(), Shader.TileMode.CLAMP
+        )
+        canvas.drawRoundRect(rect, c * 0.58f, c * 0.58f, paint)
         paint.shader = null
         paint.style = Paint.Style.STROKE
-        paint.strokeWidth = c * 0.13f
-        paint.color = gold
-        rect.set(c * 0.05f, c * 0.05f, s - c * 0.05f, s - c * 0.05f)
-        canvas.drawRoundRect(rect, c * 0.7f, c * 0.7f, paint)
-        paint.strokeWidth = c * 0.04f
-        paint.color = goldLight
-        rect.set(c * 0.2f, c * 0.2f, s - c * 0.2f, s - c * 0.2f)
-        canvas.drawRoundRect(rect, c * 0.6f, c * 0.6f, paint)
+        paint.strokeWidth = c * 0.03f
+        paint.color = 0xFF6D8B61.toInt()
+        canvas.drawRoundRect(rect, c * 0.58f, c * 0.58f, paint)
 
         // Dunkle Bahnen unter dem Kreuz
         paint.style = Paint.Style.FILL
-        paint.color = 0x55000000
-        rect.set(0.35f * c, 3.6f * c, s - 0.35f * c, 7.4f * c)
-        canvas.drawRoundRect(rect, c * 0.4f, c * 0.4f, paint)
-        rect.set(3.6f * c, 0.35f * c, 7.4f * c, s - 0.35f * c)
-        canvas.drawRoundRect(rect, c * 0.4f, c * 0.4f, paint)
+        paint.color = 0xFF102F22.toInt()
+        rect.set(0.4f * c, 3.62f * c, s - 0.4f * c, 7.38f * c)
+        canvas.drawRoundRect(rect, c * 0.45f, c * 0.45f, paint)
+        rect.set(3.62f * c, 0.4f * c, 7.38f * c, s - 0.4f * c)
+        canvas.drawRoundRect(rect, c * 0.45f, c * 0.45f, paint)
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = c * 0.03f
+        paint.color = 0xFF31533A.toInt()
+        rect.set(0.4f * c, 3.62f * c, s - 0.4f * c, 7.38f * c)
+        canvas.drawRoundRect(rect, c * 0.45f, c * 0.45f, paint)
+        rect.set(3.62f * c, 0.4f * c, 7.38f * c, s - 0.4f * c)
+        canvas.drawRoundRect(rect, c * 0.45f, c * 0.45f, paint)
 
-        // Häuser: farbige Platten mit Goldrand
+        // Häuser
         val corners = arrayOf(0 to 0, 9 to 0, 9 to 9, 0 to 9)
         for (col in 0 until 4) {
             val (hx, hy) = corners[col]
-            rect.set(hx * c + c * 0.12f, hy * c + c * 0.12f, (hx + 2) * c - c * 0.12f, (hy + 2) * c - c * 0.12f)
-            paint.style = Paint.Style.FILL
-            paint.shader = android.graphics.LinearGradient(
-                rect.left, rect.top, rect.right, rect.bottom, tint(palette[col], 0.85f), darker(palette[col]), Shader.TileMode.CLAMP
-            )
+            val tone = palette[col]
             val activeSeat = g != null && g.seat(col).kind != Kind.OFF
-            paint.alpha = if (activeSeat) 255 else 110
-            canvas.drawRoundRect(rect, c * 0.35f, c * 0.35f, paint)
-            paint.shader = null
-            paint.alpha = 255
+            rect.set(hx * c + c * 0.26f, hy * c + c * 0.26f, (hx + 2) * c - c * 0.26f, (hy + 2) * c - c * 0.26f)
+            paint.style = Paint.Style.FILL
+            paint.color = mix(tone, 0xFF10281C.toInt(), 0.2f)
+            paint.alpha = if (activeSeat) 255 else 120
+            canvas.drawRoundRect(rect, c * 0.42f, c * 0.42f, paint)
             val isCur = g != null && g.current == col
             paint.style = Paint.Style.STROKE
-            paint.strokeWidth = c * if (isCur) 0.14f else 0.06f
-            paint.color = if (isCur) goldLight else gold
-            canvas.drawRoundRect(rect, c * 0.35f, c * 0.35f, paint)
-            for ((sc, sr) in Game.HOME[col]) {
-                paint.style = Paint.Style.FILL
-                paint.color = 0x33000000
-                canvas.drawCircle(cx(sc.toFloat()), cx(sr.toFloat()), c * 0.34f, paint)
-            }
+            paint.strokeWidth = c * if (isCur) 0.12f else 0.06f
+            paint.color = if (isCur) goldLight else tone
+            canvas.drawRoundRect(rect, c * 0.42f, c * 0.42f, paint)
+            paint.alpha = 255
+            rect.inset(c * 0.15f, c * 0.15f)
+            paint.strokeWidth = c * 0.03f
+            paint.color = mix(tone, 0xFFFFFFFF.toInt(), 0.65f)
+            paint.alpha = 150
+            canvas.drawRoundRect(rect, c * 0.3f, c * 0.3f, paint)
+            paint.alpha = 255
         }
 
         // Ringfelder: elfenbeinfarbene Scheiben mit Goldring, Startfelder in Farbe
@@ -191,20 +208,37 @@ class BoardView(context: Context) : View(context) {
             val x = cx(cl.first.toFloat())
             val y = cx(cl.second.toFloat())
             val startOf = Game.START.indexOf(i)
-            if (startOf >= 0) {
-                disc(canvas, x, y, c * 0.4f, tint(palette[startOf], 0.7f), palette[startOf])
-            } else {
-                disc(canvas, x, y, c * 0.4f, 0xFFFFFDF0.toInt(), 0xFFE5D8B0.toInt())
-            }
-            ring(canvas, x, y, c * 0.4f, c)
+            val r = c * 0.4f
+            paint.style = Paint.Style.FILL
+            paint.shader = null
+            paint.color = 0x55000000
+            canvas.drawCircle(x, y + c * 0.05f, r, paint)
+            val fill = if (startOf >= 0) mix(palette[startOf], 0xFFFFFFFF.toInt(), 0.5f) else 0xFFF7EFD9.toInt()
+            paint.shader = RadialGradient(x - r * 0.3f, y - r * 0.35f, r * 1.4f, 0xFFFFFFFF.toInt(), fill, Shader.TileMode.CLAMP)
+            paint.alpha = 255
+            canvas.drawCircle(x, y, r, paint)
+            paint.shader = null
+            paint.style = Paint.Style.STROKE
+            paint.strokeWidth = c * 0.07f
+            paint.color = if (startOf >= 0) palette[startOf] else 0xFFC7A95E.toInt()
+            canvas.drawCircle(x, y, r, paint)
         }
-        // Zielfelder
+        // Zielfelder: kräftige Scheiben in Spielerfarbe
         for (col in 0 until 4) {
             for ((sc, sr) in Game.LANE[col]) {
                 val x = cx(sc.toFloat())
                 val y = cx(sr.toFloat())
-                disc(canvas, x, y, c * 0.4f, tint(palette[col], 0.75f), palette[col])
-                ring(canvas, x, y, c * 0.4f, c)
+                val r = c * 0.4f
+                paint.style = Paint.Style.FILL
+                paint.color = 0x55000000
+                canvas.drawCircle(x, y + c * 0.05f, r, paint)
+                paint.shader = RadialGradient(x - r * 0.3f, y - r * 0.35f, r * 1.4f, mix(palette[col], 0xFFFFFFFF.toInt(), 0.6f), palette[col], Shader.TileMode.CLAMP)
+                canvas.drawCircle(x, y, r, paint)
+                paint.shader = null
+                paint.style = Paint.Style.STROKE
+                paint.strokeWidth = c * 0.05f
+                paint.color = 0xB3FFFFFF.toInt()
+                canvas.drawCircle(x, y, r, paint)
             }
         }
         drawCenter(canvas, c)
@@ -339,8 +373,10 @@ class BoardView(context: Context) : View(context) {
         paint.color = 0x66000000
         canvas.drawOval(x - r * 0.95f, y + r * 0.55f, x + r * 0.95f, y + r * 1.15f, paint)
         // Kontur und Körper
-        paint.color = darker(darker(base))
+        paint.color = 0xFF14201A.toInt()
+        paint.alpha = 130
         canvas.drawCircle(x, y, r + c * 0.04f, paint)
+        paint.alpha = 255
         paint.shader = RadialGradient(
             x - r * 0.35f, y - r * 0.4f, r * 1.5f,
             intArrayOf(tint(base, 0.45f), base, darker(base)), floatArrayOf(0f, 0.5f, 1f), Shader.TileMode.CLAMP
@@ -420,7 +456,7 @@ class BoardView(context: Context) : View(context) {
         val my = 5.5f * c
         // runde goldene Platte
         paint.style = Paint.Style.FILL
-        paint.shader = RadialGradient(mx - c * 0.3f, my - c * 0.3f, c * 1.4f, 0xFFFFE38A.toInt(), 0xFFB98A1E.toInt(), Shader.TileMode.CLAMP)
+        paint.shader = android.graphics.LinearGradient(mx - c, my - c, mx + c, my + c, intArrayOf(0xFFF8DF91.toInt(), 0xFFB7862E.toInt(), 0xFFF0CF70.toInt()), floatArrayOf(0f, 0.65f, 1f), Shader.TileMode.CLAMP)
         canvas.drawCircle(mx, my, c * 1.0f, paint)
         paint.shader = null
         paint.style = Paint.Style.STROKE

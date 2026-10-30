@@ -59,9 +59,17 @@ class MainActivity : AppCompatActivity() {
     private lateinit var board: BoardView
     private lateinit var dice: DiceView
     private lateinit var status: TextView
-    private lateinit var hint: TextView
-    private lateinit var hintR: TextView
-    private lateinit var chips: List<TextView>
+    private lateinit var chipBoxes: List<LinearLayout>
+    private lateinit var chipNames: List<TextView>
+    private lateinit var chipSubs: List<TextView>
+    private lateinit var chipDots: List<View>
+    private lateinit var turnText: TextView
+    private lateinit var pulseDot: View
+    private lateinit var ctrlTitle: TextView
+    private lateinit var ctrlAttempts: TextView
+    private lateinit var rollText: TextView
+    private lateinit var rollBtn: LinearLayout
+    private lateinit var bottomHint: TextView
     private var game: Game? = null
     private var busy = false
     private var session = 0
@@ -433,31 +441,68 @@ class MainActivity : AppCompatActivity() {
 
     // ------------------------------------------------------------------ Spielbrett
 
+    private fun frameBox(label: String, onClick: () -> Unit): TextView = text(label, 24f, Color.parseColor("#F3DF9A")).apply {
+        gravity = Gravity.CENTER
+        background = GradientDrawable().apply {
+            setColor(Color.parseColor("#123425"))
+            setStroke(dp(1), Color.parseColor("#496D53"))
+            cornerRadius = dp(14).toFloat()
+        }
+        setOnClickListener { onClick() }
+    }
+
     private fun buildGame() {
         gameView = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(10), dp(6), dp(10), dp(6))
+            setPadding(dp(14), dp(8), dp(14), dp(6))
         }
+        // Kopfzeile: Zurück, Titel mit Spieler am Zug, Musik
         val top = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
-        top.addView(text("‹", 34f, GOLD, true).apply {
+        top.addView(frameBox("‹") { leaveGame() }.apply { contentDescription = "Zurück zum Menü" }, LinearLayout.LayoutParams(dp(42), dp(42)))
+        val heading = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+        }
+        heading.addView(text("ZURÜCK", 10f, Color.parseColor("#D7B45A"), true).apply {
+            letterSpacing = 0.19f
             gravity = Gravity.CENTER
-            contentDescription = "Zurück zum Menü"
-            setOnClickListener { leaveGame() }
-        }, LinearLayout.LayoutParams(dp(48), dp(48)))
-        status = text("", 18f, TEXT, true).apply { gravity = Gravity.CENTER }
-        top.addView(status, LinearLayout.LayoutParams(0, WRAP, 1f))
-        musicTop = text("🎵", 24f, GOLD).apply {
-            gravity = Gravity.CENTER
+        })
+        status = text("", 22f, Color.parseColor("#F7EFD9"), true).apply { gravity = Gravity.CENTER }
+        heading.addView(status)
+        top.addView(heading, LinearLayout.LayoutParams(0, WRAP, 1f))
+        musicTop = frameBox("♫") { showMusic() }.apply {
             alpha = 0.65f
             contentDescription = "Musik"
-            setOnClickListener { showMusic() }
         }
-        top.addView(musicTop, LinearLayout.LayoutParams(dp(48), dp(48)))
+        top.addView(musicTop, LinearLayout.LayoutParams(dp(42), dp(42)))
         gameView.addView(top, LinearLayout.LayoutParams(MATCH, WRAP))
 
+        // Zeile: wer ist am Zug (mit pulsierendem Punkt)
+        val turn = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+        }
+        pulseDot = View(this).apply {
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(Color.parseColor("#D94B45"))
+            }
+        }
+        turn.addView(pulseDot, LinearLayout.LayoutParams(dp(9), dp(9)).apply { rightMargin = dp(8) })
+        turnText = text("", 13f, Color.parseColor("#E6E4CF"))
+        turn.addView(turnText)
+        gameView.addView(turn, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(8); bottomMargin = dp(4) })
+        android.animation.ObjectAnimator.ofFloat(pulseDot, "alpha", 1f, 0.25f).apply {
+            duration = 800
+            repeatCount = android.animation.ValueAnimator.INFINITE
+            repeatMode = android.animation.ValueAnimator.REVERSE
+            start()
+        }
+
+        // Brett (mit Goldrahmen, gezeichnet in der BoardView)
         board = BoardView(this)
         board.onFigure = { color, fig -> onFigureTapped(color, fig) }
         board.style = prefs.getInt("board_style", 0)
@@ -466,48 +511,100 @@ class MainActivity : AppCompatActivity() {
             board.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
         }
         gameView.addView(board, LinearLayout.LayoutParams(MATCH, 0, 1f).apply {
-            topMargin = dp(4)
             gravity = Gravity.CENTER_HORIZONTAL
         })
 
-        // Spielerleiste direkt unter dem Brett
+        // Spielerstand
         val chipRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
         }
-        val cl = ArrayList<TextView>()
+        val boxes = ArrayList<LinearLayout>()
+        val names = ArrayList<TextView>()
+        val subs = ArrayList<TextView>()
+        val dots = ArrayList<View>()
         for (i in 0 until 4) {
-            val c = text("", 12f, TEXT, true).apply {
+            val box = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
-                setPadding(dp(8), dp(4), dp(8), dp(4))
+                setPadding(dp(4), dp(7), dp(4), dp(6))
             }
-            cl.add(c)
-            chipRow.addView(c, LinearLayout.LayoutParams(0, WRAP, 1f).apply { setMargins(dp(3), 0, dp(3), 0) })
+            val line = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER
+            }
+            val dot = View(this).apply {
+                background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(Color.WHITE) }
+            }
+            line.addView(dot, LinearLayout.LayoutParams(dp(8), dp(8)).apply { rightMargin = dp(4) })
+            val nm = text("", 12f, Color.parseColor("#F7EFD9"), true).apply { maxLines = 1 }
+            line.addView(nm)
+            box.addView(line)
+            val sb = text("", 11f, Color.parseColor("#C7D2C9")).apply { gravity = Gravity.CENTER }
+            box.addView(sb)
+            boxes.add(box); names.add(nm); subs.add(sb); dots.add(dot)
+            chipRow.addView(box, LinearLayout.LayoutParams(0, WRAP, 1f).apply { setMargins(dp(3), 0, dp(3), 0) })
         }
-        chips = cl
-        gameView.addView(chipRow, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(12) })
+        chipBoxes = boxes; chipNames = names; chipSubs = subs; chipDots = dots
+        gameView.addView(chipRow, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(10) })
 
-        // Würfel mittig darunter, links und rechts kurze Hinweise
-        val bottom = LinearLayout(this).apply {
+        // Karte mit "Dein Zug" und Würfelknopf
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(14), dp(12), dp(14), dp(12))
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TL_BR, intArrayOf(Color.parseColor("#173D2B"), Color.parseColor("#0C2419"))
+            ).apply {
+                cornerRadius = dp(22).toFloat()
+                setStroke(dp(1), Color.parseColor("#B18C3D"))
+            }
+        }
+        val label = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
-        hint = text("", 14f, TEXT, true).apply { gravity = Gravity.CENTER_VERTICAL or Gravity.END }
-        hintR = text("", 13f, DIM).apply { gravity = Gravity.CENTER_VERTICAL or Gravity.START }
+        ctrlTitle = text("Dein Zug", 15f, Color.parseColor("#F7EFD9"), true)
+        ctrlAttempts = text("", 12f, Color.parseColor("#B8C8BD")).apply { gravity = Gravity.END }
+        label.addView(ctrlTitle, LinearLayout.LayoutParams(0, WRAP, 1f))
+        label.addView(ctrlAttempts, LinearLayout.LayoutParams(WRAP, WRAP))
+        card.addView(label, LinearLayout.LayoutParams(MATCH, WRAP).apply { bottomMargin = dp(10) })
+
         dice = DiceView(this)
         dice.show(0)
-        dice.setOnClickListener { onDiceTapped() }
-        bottom.addView(hint, LinearLayout.LayoutParams(0, WRAP, 1f).apply { rightMargin = dp(10) })
-        bottom.addView(dice, LinearLayout.LayoutParams(dp(110), dp(110)))
-        bottom.addView(hintR, LinearLayout.LayoutParams(0, WRAP, 1f).apply { leftMargin = dp(10) })
-        gameView.addView(bottom, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(12) })
+        rollText = text("Würfeln", 17f, Color.parseColor("#17281B"), true)
+        rollBtn = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(dp(16), dp(10), dp(16), dp(14))
+            val edge = GradientDrawable().apply { setColor(Color.parseColor("#8D6324")); cornerRadius = dp(16).toFloat() }
+            val face = GradientDrawable(
+                GradientDrawable.Orientation.TL_BR, intArrayOf(Color.parseColor("#F5D77D"), Color.parseColor("#C99A37"))
+            ).apply { cornerRadius = dp(16).toFloat() }
+            background = android.graphics.drawable.LayerDrawable(arrayOf(edge, face)).apply {
+                setLayerInset(1, 0, 0, 0, dp(4))
+            }
+            isClickable = true
+            setOnClickListener { onDiceTapped() }
+        }
+        rollBtn.addView(dice, LinearLayout.LayoutParams(dp(46), dp(46)).apply { rightMargin = dp(12) })
+        rollBtn.addView(rollText)
+        card.addView(rollBtn, LinearLayout.LayoutParams(MATCH, WRAP))
+        gameView.addView(card, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(10) })
+
+        bottomHint = text("", 12f, Color.parseColor("#B9CABE")).apply { gravity = Gravity.CENTER }
+        gameView.addView(bottomHint, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(8) })
         gameView.visibility = View.GONE
     }
 
-    /** Kurze Hinweise links und rechts vom Würfel. */
-    private fun setHint(left: String, right: String = "") {
-        hint.text = left
-        hintR.text = right
+    private fun setTurn(turn: String, hintText: String = "") {
+        turnText.text = turn
+        bottomHint.text = hintText
+    }
+
+    private fun setRoll(title: String, attempts: String, roll: String) {
+        ctrlTitle.text = title
+        ctrlAttempts.text = attempts
+        rollText.text = roll
     }
 
     private fun playerName(color: Int): String {
@@ -562,19 +659,21 @@ class MainActivity : AppCompatActivity() {
     private fun updateChips() {
         val g = game ?: return
         for (i in 0 until 4) {
-            val c = chips[i]
+            val box = chipBoxes[i]
             if (g.seat(i).kind == Kind.OFF) {
-                c.visibility = View.INVISIBLE
+                box.visibility = View.INVISIBLE
                 continue
             }
-            c.visibility = View.VISIBLE
-            c.text = "${playerName(i)}  ${g.finished(i)}/4"
-            c.background = GradientDrawable().apply {
-                cornerRadius = dp(12).toFloat()
-                setColor(if (g.current == i) BoardView.palette[i] else Color.parseColor("#1B2E22"))
-                setStroke(dp(2), BoardView.palette[i])
+            box.visibility = View.VISIBLE
+            chipNames[i].text = playerName(i)
+            chipSubs[i].text = "${g.finished(i)} von 4"
+            (chipDots[i].background as GradientDrawable).setColor(BoardView.palette[i])
+            val cur = g.current == i
+            box.background = GradientDrawable().apply {
+                cornerRadius = dp(13).toFloat()
+                setColor(if (cur) Color.parseColor("#22FFFFFF") else Color.parseColor("#12FFFFFF"))
+                setStroke(dp(if (cur) 2 else 1), if (cur) BoardView.palette[i] else Color.parseColor("#33FFFFFF"))
             }
-            c.setTextColor(if (g.current == i) Color.WHITE else TEXT)
         }
     }
 
@@ -594,13 +693,18 @@ class MainActivity : AppCompatActivity() {
         saveGame()
         val name = playerName(g.current)
         status.text = if (bonus) "$name: noch einmal!" else "$name ist dran"
+        (pulseDot.background as GradientDrawable).setColor(BoardView.palette[g.current])
         if (g.seat(g.current).kind == Kind.COMPUTER) {
-            setHint("Computer würfelt")
+            setTurn("Computer ist am Zug")
+            setRoll(name, "", "Computer würfelt …")
+            rollBtn.alpha = 0.6f
             dice.enabledLook = false
             later(800) { rollDice() }
         } else {
             dice.enabledLook = true
-            if (g.needsThreeTries(g.current)) setHint("Würfeln!", "3 Versuche für die 6") else setHint("Würfeln!", "Tippe den Würfel")
+            rollBtn.alpha = 1f
+            setTurn("$name ist am Zug – würfle, um weiterzuspielen", "Tippe auf den Würfel, um zu würfeln.")
+            setRoll("Dein Zug", if (g.needsThreeTries(g.current)) "Noch 3 Versuche für eine 6" else "", if (bonus) "Noch einmal würfeln" else "Würfeln")
         }
     }
 
@@ -624,13 +728,16 @@ class MainActivity : AppCompatActivity() {
         val moves = g.legalMoves(g.current, g.dice)
         val human = g.seat(g.current).kind == Kind.HUMAN
         if (moves.isEmpty()) {
-            setHint("Kein Zug")
+            setTurn("Kein Zug möglich")
             later(1000) {
                 val again = g.noMoveAfterRoll()
                 if (again) {
                     status.text = "${playerName(g.current)}: noch ein Versuch"
                     busy = false
-                    if (g.seat(g.current).kind == Kind.COMPUTER) later(600) { rollDice() } else setHint("Nochmal würfeln!")
+                    if (g.seat(g.current).kind == Kind.COMPUTER) later(600) { rollDice() } else {
+                        setTurn("Noch ein Versuch", "Tippe auf den Würfel, um zu würfeln.")
+                        setRoll("Dein Zug", "", "Nochmal würfeln")
+                    }
                 } else {
                     beginTurn(false)
                 }
@@ -638,14 +745,14 @@ class MainActivity : AppCompatActivity() {
             return
         }
         if (human && moves.size > 1) {
-            setHint("Figur wählen", "Blinkende antippen")
+            setTurn("Wähle eine blinkende Figur", "Tippe auf eine blinkende Figur, um zu ziehen.")
             board.movable = moves.map { it.color * 4 + it.fig }.toSet()
             busy = false
             return
         }
         // Computer oder nur ein möglicher Zug
         val m = if (human) moves[0] else Ai.choose(g, moves, easy)
-        if (human) setHint("Einziger Zug") else setHint("${playerName(g.current)} zieht")
+        if (human) setTurn("Es gibt nur einen Zug") else setTurn("${playerName(g.current)} zieht")
         later(if (human) 500 else 700) { doMove(m) }
     }
 
@@ -695,7 +802,7 @@ class MainActivity : AppCompatActivity() {
     private fun showWinner(color: Int) {
         prefs.edit().remove("game").apply()
         status.text = "${playerName(color)} hat gewonnen!"
-        setHint("Glückwunsch!")
+        setTurn("Glückwunsch!")
         AlertDialog.Builder(this)
             .setTitle("🏆  ${playerName(color)} gewinnt!")
             .setMessage("Alle vier Figuren sind im Ziel.")
