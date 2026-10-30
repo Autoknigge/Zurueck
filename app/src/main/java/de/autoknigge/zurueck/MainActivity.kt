@@ -60,6 +60,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var dice: DiceView
     private lateinit var status: TextView
     private lateinit var hint: TextView
+    private lateinit var hintR: TextView
     private lateinit var chips: List<TextView>
     private var game: Game? = null
     private var busy = false
@@ -464,20 +465,12 @@ class MainActivity : AppCompatActivity() {
             cycleStyle()
             board.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
         }
-        gameView.addView(board, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(4) })
+        gameView.addView(board, LinearLayout.LayoutParams(MATCH, 0, 1f).apply {
+            topMargin = dp(4)
+            gravity = Gravity.CENTER_HORIZONTAL
+        })
 
-        val bottom = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-        }
-        dice = DiceView(this)
-        dice.show(0)
-        dice.setOnClickListener { onDiceTapped() }
-        bottom.addView(dice, LinearLayout.LayoutParams(dp(84), dp(84)).apply { rightMargin = dp(12) })
-        hint = text("", 15f, DIM)
-        bottom.addView(hint, LinearLayout.LayoutParams(0, WRAP, 1f))
-        gameView.addView(bottom, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(8) })
-
+        // Spielerleiste direkt unter dem Brett
         val chipRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
@@ -492,8 +485,29 @@ class MainActivity : AppCompatActivity() {
             chipRow.addView(c, LinearLayout.LayoutParams(0, WRAP, 1f).apply { setMargins(dp(3), 0, dp(3), 0) })
         }
         chips = cl
-        gameView.addView(chipRow, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(8) })
+        gameView.addView(chipRow, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(12) })
+
+        // Würfel mittig darunter, links und rechts kurze Hinweise
+        val bottom = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        hint = text("", 14f, TEXT, true).apply { gravity = Gravity.CENTER_VERTICAL or Gravity.END }
+        hintR = text("", 13f, DIM).apply { gravity = Gravity.CENTER_VERTICAL or Gravity.START }
+        dice = DiceView(this)
+        dice.show(0)
+        dice.setOnClickListener { onDiceTapped() }
+        bottom.addView(hint, LinearLayout.LayoutParams(0, WRAP, 1f).apply { rightMargin = dp(10) })
+        bottom.addView(dice, LinearLayout.LayoutParams(dp(110), dp(110)))
+        bottom.addView(hintR, LinearLayout.LayoutParams(0, WRAP, 1f).apply { leftMargin = dp(10) })
+        gameView.addView(bottom, LinearLayout.LayoutParams(MATCH, WRAP).apply { topMargin = dp(12) })
         gameView.visibility = View.GONE
+    }
+
+    /** Kurze Hinweise links und rechts vom Würfel. */
+    private fun setHint(left: String, right: String = "") {
+        hint.text = left
+        hintR.text = right
     }
 
     private fun playerName(color: Int): String {
@@ -581,16 +595,12 @@ class MainActivity : AppCompatActivity() {
         val name = playerName(g.current)
         status.text = if (bonus) "$name: noch einmal!" else "$name ist dran"
         if (g.seat(g.current).kind == Kind.COMPUTER) {
-            hint.text = "Der Computer würfelt …"
+            setHint("Computer würfelt")
             dice.enabledLook = false
             later(800) { rollDice() }
         } else {
             dice.enabledLook = true
-            hint.text = if (g.needsThreeTries(g.current)) {
-                "Tippe auf den Würfel – du hast bis zu 3 Versuche für eine 6."
-            } else {
-                "Tippe auf den Würfel."
-            }
+            if (g.needsThreeTries(g.current)) setHint("Würfeln!", "3 Versuche für die 6") else setHint("Würfeln!", "Tippe den Würfel")
         }
     }
 
@@ -614,13 +624,13 @@ class MainActivity : AppCompatActivity() {
         val moves = g.legalMoves(g.current, g.dice)
         val human = g.seat(g.current).kind == Kind.HUMAN
         if (moves.isEmpty()) {
-            hint.text = "Kein Zug möglich."
+            setHint("Kein Zug")
             later(1000) {
                 val again = g.noMoveAfterRoll()
                 if (again) {
                     status.text = "${playerName(g.current)}: noch ein Versuch"
                     busy = false
-                    if (g.seat(g.current).kind == Kind.COMPUTER) later(600) { rollDice() } else hint.text = "Tippe noch einmal auf den Würfel."
+                    if (g.seat(g.current).kind == Kind.COMPUTER) later(600) { rollDice() } else setHint("Nochmal würfeln!")
                 } else {
                     beginTurn(false)
                 }
@@ -628,14 +638,14 @@ class MainActivity : AppCompatActivity() {
             return
         }
         if (human && moves.size > 1) {
-            hint.text = "Tippe auf die Figur, die ziehen soll."
+            setHint("Figur wählen", "Blinkende antippen")
             board.movable = moves.map { it.color * 4 + it.fig }.toSet()
             busy = false
             return
         }
         // Computer oder nur ein möglicher Zug
         val m = if (human) moves[0] else Ai.choose(g, moves, easy)
-        hint.text = if (human) "Es gibt nur einen Zug." else "${playerName(g.current)} zieht."
+        if (human) setHint("Einziger Zug") else setHint("${playerName(g.current)} zieht")
         later(if (human) 500 else 700) { doMove(m) }
     }
 
@@ -685,7 +695,7 @@ class MainActivity : AppCompatActivity() {
     private fun showWinner(color: Int) {
         prefs.edit().remove("game").apply()
         status.text = "${playerName(color)} hat gewonnen!"
-        hint.text = "Glückwunsch!"
+        setHint("Glückwunsch!")
         AlertDialog.Builder(this)
             .setTitle("🏆  ${playerName(color)} gewinnt!")
             .setMessage("Alle vier Figuren sind im Ziel.")

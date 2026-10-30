@@ -87,10 +87,12 @@ class BoardView(context: Context) : View(context) {
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
         pulser.start()
+        spinner.start()
     }
 
     override fun onDetachedFromWindow() {
         pulser.cancel()
+        spinner.cancel()
         super.onDetachedFromWindow()
     }
 
@@ -205,25 +207,7 @@ class BoardView(context: Context) : View(context) {
                 ring(canvas, x, y, c * 0.4f, c)
             }
         }
-        // Mitte: goldene Platte mit kleinem Würfel
-        rect.set(4.55f * c, 4.55f * c, 6.45f * c, 6.45f * c)
-        paint.style = Paint.Style.FILL
-        paint.shader = android.graphics.LinearGradient(rect.left, rect.top, rect.right, rect.bottom, 0xFFFFE38A.toInt(), 0xFFB98A1E.toInt(), Shader.TileMode.CLAMP)
-        canvas.drawRoundRect(rect, c * 0.4f, c * 0.4f, paint)
-        paint.shader = null
-        paint.style = Paint.Style.STROKE
-        paint.strokeWidth = c * 0.07f
-        paint.color = 0xFF8A6D1B.toInt()
-        canvas.drawRoundRect(rect, c * 0.4f, c * 0.4f, paint)
-        // Würfel (Fünf)
-        val dr = RectF(5.0f * c, 5.0f * c, 6.0f * c, 6.0f * c)
-        paint.style = Paint.Style.FILL
-        paint.color = 0xFFF8E7A4.toInt()
-        canvas.drawRoundRect(dr, c * 0.18f, c * 0.18f, paint)
-        paint.color = 0xFF1B3A2B.toInt()
-        for ((dx, dy) in listOf(-1 to -1, 1 to -1, 0 to 0, -1 to 1, 1 to 1)) {
-            canvas.drawCircle(5.5f * c + dx * c * 0.24f, 5.5f * c + dy * c * 0.24f, c * 0.075f, paint)
-        }
+        drawCenter(canvas, c)
 
         if (g == null) return
         // Figuren: zuerst ruhende, dann animierte; von oben nach unten, damit sich die Figuren natürlich überdecken
@@ -312,16 +296,7 @@ class BoardView(context: Context) : View(context) {
                 canvas.drawCircle(cx(sc.toFloat()), cx(sr.toFloat()), c * 0.38f, paint)
             }
         }
-        // Mitte
-        rect.set(4.5f * c, 4.5f * c, 6.5f * c, 6.5f * c)
-        paint.style = Paint.Style.FILL
-        paint.shader = RadialGradient(5.5f * c, 5.5f * c, c * 1.1f, 0xFFFFF0B8.toInt(), 0xFFC9A038.toInt(), Shader.TileMode.CLAMP)
-        canvas.drawRoundRect(rect, c * 0.5f, c * 0.5f, paint)
-        paint.shader = null
-        paint.style = Paint.Style.STROKE
-        paint.strokeWidth = c * 0.06f
-        paint.color = 0xFF8A6D3B.toInt()
-        canvas.drawRoundRect(rect, c * 0.5f, c * 0.5f, paint)
+        drawCenter(canvas, c)
 
         if (g == null) return
         // Figuren (zuerst ruhende, dann animierte)
@@ -392,6 +367,125 @@ class BoardView(context: Context) : View(context) {
 
     private fun darker(col: Int): Int =
         Color.rgb((Color.red(col) * 0.55f).toInt(), (Color.green(col) * 0.55f).toInt(), (Color.blue(col) * 0.55f).toInt())
+
+    // ---------------------------------------------------------------- Mitte: runde Platte mit drehendem 3D-Würfel
+
+    private var spin = 0f
+    private val spinner = ValueAnimator.ofFloat(0f, 360f).apply {
+        duration = 14000
+        repeatCount = ValueAnimator.INFINITE
+        interpolator = LinearInterpolator()
+        addUpdateListener {
+            spin = it.animatedValue as Float
+            val c = cell()
+            invalidate((4.4f * c).toInt(), (4.4f * c).toInt(), (6.6f * c).toInt(), (6.6f * c).toInt())
+        }
+    }
+
+    private val path = android.graphics.Path()
+
+    private class FaceDef(val n: FloatArray, val u: FloatArray, val v: FloatArray, val pips: Int)
+
+    private val faces = listOf(
+        FaceDef(floatArrayOf(0f, 0f, 1f), floatArrayOf(1f, 0f, 0f), floatArrayOf(0f, 1f, 0f), 1),
+        FaceDef(floatArrayOf(0f, 0f, -1f), floatArrayOf(-1f, 0f, 0f), floatArrayOf(0f, 1f, 0f), 6),
+        FaceDef(floatArrayOf(1f, 0f, 0f), floatArrayOf(0f, 0f, -1f), floatArrayOf(0f, 1f, 0f), 2),
+        FaceDef(floatArrayOf(-1f, 0f, 0f), floatArrayOf(0f, 0f, 1f), floatArrayOf(0f, 1f, 0f), 5),
+        FaceDef(floatArrayOf(0f, 1f, 0f), floatArrayOf(1f, 0f, 0f), floatArrayOf(0f, 0f, -1f), 3),
+        FaceDef(floatArrayOf(0f, -1f, 0f), floatArrayOf(1f, 0f, 0f), floatArrayOf(0f, 0f, 1f), 4)
+    )
+
+    private fun pipGrid(n: Int): List<Pair<Float, Float>> = when (n) {
+        1 -> listOf(0f to 0f)
+        2 -> listOf(-.5f to -.5f, .5f to .5f)
+        3 -> listOf(-.5f to -.5f, 0f to 0f, .5f to .5f)
+        4 -> listOf(-.5f to -.5f, .5f to -.5f, -.5f to .5f, .5f to .5f)
+        5 -> listOf(-.5f to -.5f, .5f to -.5f, 0f to 0f, -.5f to .5f, .5f to .5f)
+        else -> listOf(-.5f to -.5f, -.5f to 0f, -.5f to .5f, .5f to -.5f, .5f to 0f, .5f to .5f)
+    }
+
+    /** Dreht einen Punkt (x, y, z): erst um die senkrechte Achse, dann leicht gekippt. */
+    private fun rot(x: Float, y: Float, z: Float, ay: Float, ax: Float): FloatArray {
+        val cy = kotlin.math.cos(ay)
+        val sy = sin(ay)
+        val x1 = x * cy + z * sy
+        val z1 = -x * sy + z * cy
+        val cx = kotlin.math.cos(ax)
+        val sx = sin(ax)
+        return floatArrayOf(x1, y * cx - z1 * sx, y * sx + z1 * cx)
+    }
+
+    private fun drawCenter(canvas: Canvas, c: Float) {
+        val mx = 5.5f * c
+        val my = 5.5f * c
+        // runde goldene Platte
+        paint.style = Paint.Style.FILL
+        paint.shader = RadialGradient(mx - c * 0.3f, my - c * 0.3f, c * 1.4f, 0xFFFFE38A.toInt(), 0xFFB98A1E.toInt(), Shader.TileMode.CLAMP)
+        canvas.drawCircle(mx, my, c * 1.0f, paint)
+        paint.shader = null
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = c * 0.07f
+        paint.color = 0xFF8A6D1B.toInt()
+        canvas.drawCircle(mx, my, c * 1.0f, paint)
+        // dunkle Mulde, damit der goldene Würfel sich abhebt
+        paint.style = Paint.Style.FILL
+        paint.shader = RadialGradient(mx, my, c * 0.85f, 0xFF1D5430.toInt(), 0xFF0A2412.toInt(), Shader.TileMode.CLAMP)
+        canvas.drawCircle(mx, my, c * 0.84f, paint)
+        paint.shader = null
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = c * 0.04f
+        paint.color = 0xFFFFE38A.toInt()
+        canvas.drawCircle(mx, my, c * 0.84f, paint)
+
+        // Würfel
+        val ay = Math.toRadians(spin.toDouble()).toFloat()
+        val ax = 0.55f + 0.25f * sin(ay * 2f)
+        val k = c * 0.37f
+        val lx = -0.35f
+        val ly = -0.55f
+        val lz = 0.75f
+        for (f in faces) {
+            val nr = rot(f.n[0], f.n[1], f.n[2], ay, ax)
+            if (nr[2] <= 0.02f) continue
+            // Eckpunkte der Fläche
+            path.reset()
+            val corners = listOf(-1f to -1f, 1f to -1f, 1f to 1f, -1f to 1f)
+            for ((i, q) in corners.withIndex()) {
+                val px = f.n[0] + q.first * f.u[0] + q.second * f.v[0]
+                val py = f.n[1] + q.first * f.u[1] + q.second * f.v[1]
+                val pz = f.n[2] + q.first * f.u[2] + q.second * f.v[2]
+                val r = rot(px, py, pz, ay, ax)
+                if (i == 0) path.moveTo(mx + r[0] * k, my + r[1] * k) else path.lineTo(mx + r[0] * k, my + r[1] * k)
+            }
+            path.close()
+            val light = (nr[0] * lx + nr[1] * ly + nr[2] * lz).coerceIn(0f, 1f)
+            val shade = 0.62f + 0.5f * light
+            fun mixc(a: Int, f2: Float) = Color.rgb(
+                (Color.red(a) * f2).toInt().coerceAtMost(255),
+                (Color.green(a) * f2).toInt().coerceAtMost(255),
+                (Color.blue(a) * f2).toInt().coerceAtMost(255)
+            )
+            paint.style = Paint.Style.FILL
+            paint.color = mixc(0xFFF2D27A.toInt(), shade)
+            canvas.drawPath(path, paint)
+            paint.style = Paint.Style.STROKE
+            paint.strokeWidth = c * 0.05f
+            paint.strokeJoin = Paint.Join.ROUND
+            paint.color = mixc(0xFFB98A1E.toInt(), shade)
+            canvas.drawPath(path, paint)
+            paint.strokeJoin = Paint.Join.MITER
+            // Augen
+            paint.style = Paint.Style.FILL
+            paint.color = 0xFF1B3A2B.toInt()
+            for ((a, b) in pipGrid(f.pips)) {
+                val px = f.n[0] + a * f.u[0] * 1.2f + b * f.v[0] * 1.2f
+                val py = f.n[1] + a * f.u[1] * 1.2f + b * f.v[1] * 1.2f
+                val pz = f.n[2] + a * f.u[2] * 1.2f + b * f.v[2] * 1.2f
+                val r = rot(px, py, pz, ay, ax)
+                canvas.drawCircle(mx + r[0] * k, my + r[1] * k, c * (0.065f + 0.04f * nr[2]), paint)
+            }
+        }
+    }
 
     // ---------------------------------------------------------------- Animation
 
