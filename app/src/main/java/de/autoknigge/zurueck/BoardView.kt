@@ -29,6 +29,8 @@ class BoardView(context: Context) : View(context) {
         /** Hölzer für Design D: Kirsche (rötlich), Eiche (grünlich-braun gebeizt wird nicht – daher Eiche mittel), Ahorn (hell), Nussbaum (dunkel). */
         val WOOD = intArrayOf(0xFFB5502D.toInt(), 0xFFA8793F.toInt(), 0xFFE9CB93.toInt(), 0xFF5A3720.toInt())
         val NAMES_WOOD = arrayOf("Kirsche", "Eiche", "Ahorn", "Nussbaum")
+        val STONE = intArrayOf(0xFFB5493F.toInt(), 0xFF3F8A5E.toInt(), 0xFFD9AE68.toInt(), 0xFF7A88A6.toInt())
+        val NAMES_STONE = arrayOf("Porphyr", "Serpentin", "Sandstein", "Basalt")
         val NAMES_STD = arrayOf("Rot", "Grün", "Gelb", "Blau")
         val NAMES_EARTH = arrayOf("Rot", "Grün", "Gelb", "Braun")
 
@@ -62,12 +64,14 @@ class BoardView(context: Context) : View(context) {
             field = v
             palette = when (v) {
                 2 -> EARTH
-                3, 4 -> WOOD
+                1, 3, 4 -> WOOD
+                5 -> STONE
                 else -> COLORS
             }
             names = when (v) {
                 2 -> NAMES_EARTH
-                3, 4 -> NAMES_WOOD
+                1, 3, 4 -> NAMES_WOOD
+                5 -> NAMES_STONE
                 else -> NAMES_STD
             }
             invalidate()
@@ -147,8 +151,7 @@ class BoardView(context: Context) : View(context) {
 
     override fun onDraw(canvas: Canvas) {
         when (style) {
-            1 -> drawClassic(canvas)
-            3 -> drawWood(canvas)
+            1, 3, 5 -> drawWood(canvas)
             4 -> drawRustic(canvas)
             else -> drawFelt(canvas, style == 2)
         }
@@ -359,7 +362,7 @@ class BoardView(context: Context) : View(context) {
      * dunklem Punkt in der Mitte. Der Punkt blinkt bei Figuren, die gezogen werden dürfen.
      */
     private fun drawToken(canvas: Canvas, col: Int, x: Float, y: Float, c: Float, scale: Float, hint: Boolean) {
-        if (style >= 3) {
+        if (style != 0 && style != 2) {
             drawWoodToken(canvas, col, x, y, c, scale, hint)
             return
         }
@@ -434,7 +437,9 @@ class BoardView(context: Context) : View(context) {
     )
 
     /** Hölzer der Spielsteine in der Reihenfolge der Spieler: Kirsche, Eiche, Ahorn, Nussbaum. */
-    private val woodRes = intArrayOf(R.drawable.wood_kirsche, R.drawable.wood_eiche, R.drawable.wood_ahorn, R.drawable.wood_nussbaum)
+    private val woodRes0 = intArrayOf(R.drawable.wood_kirsche, R.drawable.wood_eiche, R.drawable.wood_ahorn, R.drawable.wood_nussbaum)
+    private val stoneRes = intArrayOf(R.drawable.stone_granit, R.drawable.stone_serpentin, R.drawable.stone_sandstein, R.drawable.stone_basalt)
+    private val woodRes: IntArray get() = if (style == 5) stoneRes else woodRes0
 
     private val brass = 0xFFC9A648.toInt()
 
@@ -462,7 +467,7 @@ class BoardView(context: Context) : View(context) {
                 paint.shader = null
                 paint.style = Paint.Style.STROKE
                 paint.strokeWidth = c * 0.09f
-                paint.color = if (burnt) 0xFF2A170B.toInt() else brass
+                paint.color = if (style == 5) 0xFFB9B2AA.toInt() else if (burnt) 0xFF2A170B.toInt() else brass
                 paint.alpha = if (activeSeat) 255 else 70
                 canvas.drawCircle(x, y, c * 0.4f, paint)
                 paint.strokeWidth = c * 0.03f
@@ -535,10 +540,10 @@ class BoardView(context: Context) : View(context) {
         val s = c * 11f
         rect.set(0f, 0f, s, s)
         paint.style = Paint.Style.FILL
-        paint.shader = tex(R.drawable.wood_board_d, s / 1024f, 0f, 0f)
+        paint.shader = tex(when (style) { 1 -> R.drawable.wood_board_hell; 5 -> R.drawable.stone_granit; else -> R.drawable.wood_board_d }, s / 1024f, 0f, 0f)
         canvas.drawRoundRect(rect, c * 0.7f, c * 0.7f, paint)
         // sanfte Abdunklung zum Rand, helle Kante oben links, dunkle unten rechts
-        paint.shader = RadialGradient(s / 2, s / 2, s * 0.75f, 0x00000000, 0x77000000, Shader.TileMode.CLAMP)
+        paint.shader = RadialGradient(s / 2, s / 2, s * 0.75f, 0x00000000, if (style == 1) 0x44502A0A else 0x77000000, Shader.TileMode.CLAMP)
         canvas.drawRoundRect(rect, c * 0.7f, c * 0.7f, paint)
         paint.shader = null
         paint.style = Paint.Style.STROKE
@@ -868,8 +873,8 @@ class BoardView(context: Context) : View(context) {
     private fun drawCenter(canvas: Canvas, c: Float) {
         val mx = 5.5f * c
         val my = 5.5f * c
-        val wooden = style >= 3
-        val marble = style == 1 || style == 2
+        val wooden = style == 1 || style == 3 || style == 4
+        val marble = style == 2 || style == 5
         if (false) {
             // goldene Platte (abgerundetes Quadrat) wie im Designentwurf
             val half = c * 1.21f
