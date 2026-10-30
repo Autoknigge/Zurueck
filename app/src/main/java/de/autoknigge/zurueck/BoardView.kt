@@ -84,6 +84,8 @@ class BoardView(context: Context) : View(context) {
     private val anims = HashMap<Int, Anim>()
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val rect = RectF()
+    private val swirl = android.graphics.Path()
+    private val swirlB = RectF()
     private var pulse = 0f
     private val pulser = ValueAnimator.ofFloat(0f, 1f).apply {
         duration = 900
@@ -865,6 +867,7 @@ class BoardView(context: Context) : View(context) {
         val mx = 5.5f * c
         val my = 5.5f * c
         val wooden = style >= 3
+        val marble = style == 1 || style == 2
         if (!wooden) {
             // goldene Platte (abgerundetes Quadrat) wie im Designentwurf
             val half = c * 1.21f
@@ -952,6 +955,44 @@ class BoardView(context: Context) : View(context) {
                 canvas.drawPath(path, paint)
                 paint.alpha = 255
                 paint.strokeJoin = Paint.Join.MITER
+            } else if (marble) {
+                // dunkelroter Marmor-Würfel mit Wirbeln und goldenen Augen
+                paint.color = mixc(0xFF7C1612.toInt(), shade)
+                canvas.drawPath(path, paint)
+                canvas.save()
+                canvas.clipPath(path)
+                val fi = faces.indexOf(f)
+                swirlB.set(0f,0f,0f,0f); path.computeBounds(swirlB, true); val b = swirlB
+                val w = b.width()
+                val h = b.height()
+                paint.style = Paint.Style.STROKE
+                paint.strokeCap = Paint.Cap.ROUND
+                for (j in 0 until 7) {
+                    val t = j + fi * 7
+                    val x0 = b.left + w * (((t * 37) % 11) / 10f)
+                    val y0 = b.top + h * (((t * 53) % 13) / 12f)
+                    val x1 = b.left + w * (((t * 29 + 3) % 11) / 10f)
+                    val y1 = b.top + h * (((t * 41 + 5) % 13) / 12f)
+                    swirl.reset()
+                    swirl.moveTo(x0, y0)
+                    swirl.cubicTo(x0 + w * 0.5f, y0 - h * 0.4f, x1 - w * 0.5f, y1 + h * 0.4f, x1, y1)
+                    paint.strokeWidth = c * (0.1f + 0.05f * (j % 3))
+                    paint.color = if (j % 2 == 0) mixc(0xFF1A0605.toInt(), shade) else mixc(0xFFC8352B.toInt(), shade)
+                    paint.alpha = 190
+                    canvas.drawPath(swirl, paint)
+                }
+                paint.alpha = 255
+                paint.strokeCap = Paint.Cap.BUTT
+                canvas.restore()
+                // Glanz und abgerundete Kanten
+                paint.style = Paint.Style.STROKE
+                paint.strokeWidth = c * 0.12f
+                paint.strokeJoin = Paint.Join.ROUND
+                paint.color = mixc(0xFF2A0807.toInt(), shade)
+                paint.alpha = 200
+                canvas.drawPath(path, paint)
+                paint.alpha = 255
+                paint.strokeJoin = Paint.Join.MITER
             } else {
                 paint.color = mixc(0xFFFFE9A6.toInt(), shade)
                 canvas.drawPath(path, paint)
@@ -964,7 +1005,7 @@ class BoardView(context: Context) : View(context) {
             }
             // Augen
             paint.style = Paint.Style.FILL
-            paint.color = if (wooden) 0xFF3A2412.toInt() else 0xFF103626.toInt()
+            paint.color = if (wooden) 0xFF3A2412.toInt() else if (marble) 0xFFF2B93E.toInt() else 0xFF103626.toInt()
             for ((a, b) in pipGrid(f.pips)) {
                 val px = f.n[0] + a * f.u[0] * 1.2f + b * f.v[0] * 1.2f
                 val py = f.n[1] + a * f.u[1] * 1.2f + b * f.v[1] * 1.2f
