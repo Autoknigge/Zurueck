@@ -85,6 +85,7 @@ class BoardView(context: Context) : View(context) {
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val rect = RectF()
     private val swirl = android.graphics.Path()
+    private val pipPath = android.graphics.Path()
     private val swirlB = RectF()
     private var pulse = 0f
     private val pulser = ValueAnimator.ofFloat(0f, 1f).apply {
@@ -178,7 +179,7 @@ class BoardView(context: Context) : View(context) {
         rect.set(f, f, s - f, s - f)
         paint.shader = RadialGradient(
             s / 2, s * 0.45f, s * 0.7f,
-            if (earth) 0xFF14402A.toInt() else 0xFF163D2B.toInt(), if (earth) 0xFF06170D.toInt() else 0xFF0B2419.toInt(), Shader.TileMode.CLAMP
+            if (earth) 0xFF1B4A32.toInt() else 0xFF1D4D35.toInt(), if (earth) 0xFF0A2217.toInt() else 0xFF0D2B1E.toInt(), Shader.TileMode.CLAMP
         )
         canvas.drawRoundRect(rect, c * 0.58f, c * 0.58f, paint)
         paint.shader = null
@@ -186,21 +187,6 @@ class BoardView(context: Context) : View(context) {
         paint.strokeWidth = c * 0.03f
         paint.color = 0xFF6D8B61.toInt()
         canvas.drawRoundRect(rect, c * 0.58f, c * 0.58f, paint)
-
-        // Dunkle Bahnen unter dem Kreuz
-        paint.style = Paint.Style.FILL
-        paint.color = 0xFF102F22.toInt()
-        rect.set(0.4f * c, 3.62f * c, s - 0.4f * c, 7.38f * c)
-        canvas.drawRoundRect(rect, c * 0.45f, c * 0.45f, paint)
-        rect.set(3.62f * c, 0.4f * c, 7.38f * c, s - 0.4f * c)
-        canvas.drawRoundRect(rect, c * 0.45f, c * 0.45f, paint)
-        paint.style = Paint.Style.STROKE
-        paint.strokeWidth = c * 0.03f
-        paint.color = 0xFF31533A.toInt()
-        rect.set(0.4f * c, 3.62f * c, s - 0.4f * c, 7.38f * c)
-        canvas.drawRoundRect(rect, c * 0.45f, c * 0.45f, paint)
-        rect.set(3.62f * c, 0.4f * c, 7.38f * c, s - 0.4f * c)
-        canvas.drawRoundRect(rect, c * 0.45f, c * 0.45f, paint)
 
         // Heimat: je Farbe vier goldgelbe Kreise nur als Rand (keine Fläche); stehen Figuren zu Hause, sitzen sie darin
         for (col in 0 until 4) {
@@ -933,7 +919,7 @@ class BoardView(context: Context) : View(context) {
             }
             path.close()
             val light = (nr[0] * lx + nr[1] * ly + nr[2] * lz).coerceIn(0f, 1f)
-            val shade = 0.62f + 0.5f * light
+            val shade = 0.8f + 0.28f * light
             fun mixc(a: Int, f2: Float) = Color.rgb(
                 (Color.red(a) * f2).toInt().coerceAtMost(255),
                 (Color.green(a) * f2).toInt().coerceAtMost(255),
@@ -945,10 +931,10 @@ class BoardView(context: Context) : View(context) {
                 paint.shader = tex(R.drawable.wood_ahorn, c * 1.3f / 512f, mx - c, my - c)
                 canvas.drawPath(path, paint)
                 paint.shader = null
-                paint.color = Color.argb(((1f - shade.coerceAtMost(1.1f) / 1.1f) * 150f).toInt().coerceIn(0, 170), 0, 0, 0)
+                paint.color = Color.argb(((1.08f - shade) * 160f).toInt().coerceIn(0, 60), 0, 0, 0)
                 canvas.drawPath(path, paint)
                 paint.style = Paint.Style.STROKE
-                paint.strokeWidth = c * 0.13f
+                paint.strokeWidth = c * 0.05f
                 paint.strokeJoin = Paint.Join.ROUND
                 paint.color = mixc(0xFFE4C48C.toInt(), shade)
                 paint.alpha = 215
@@ -986,7 +972,7 @@ class BoardView(context: Context) : View(context) {
                 canvas.restore()
                 // Glanz und abgerundete Kanten
                 paint.style = Paint.Style.STROKE
-                paint.strokeWidth = c * 0.12f
+                paint.strokeWidth = c * 0.05f
                 paint.strokeJoin = Paint.Join.ROUND
                 paint.color = mixc(0xFF2A0807.toInt(), shade)
                 paint.alpha = 200
@@ -1003,15 +989,32 @@ class BoardView(context: Context) : View(context) {
                 canvas.drawPath(path, paint)
                 paint.strokeJoin = Paint.Join.MITER
             }
-            // Augen
-            paint.style = Paint.Style.FILL
-            paint.color = if (wooden) 0xFF3A2412.toInt() else if (marble) 0xFFF2B93E.toInt() else 0xFF103626.toInt()
+            val pipColor = if (wooden) mixc(0xFF3A2412.toInt(), shade) else if (marble) 0xFFF2B93E.toInt() else 0xFF103626.toInt()
+            // Augen: flache Einkerbungen, in die Fläche gelegt und perspektivisch verkürzt
             for ((a, b) in pipGrid(f.pips)) {
-                val px = f.n[0] + a * f.u[0] * 1.2f + b * f.v[0] * 1.2f
-                val py = f.n[1] + a * f.u[1] * 1.2f + b * f.v[1] * 1.2f
-                val pz = f.n[2] + a * f.u[2] * 1.2f + b * f.v[2] * 1.2f
-                val r = rot(px, py, pz, ay, ax)
-                canvas.drawCircle(mx + r[0] * k, my + r[1] * k, c * (0.065f + 0.04f * nr[2]), paint)
+                pipPath.reset()
+                for (i in 0 until 14) {
+                    val t = i * 2f * PI.toFloat() / 14f
+                    val da = a * 1.2f + 0.17f * kotlin.math.cos(t)
+                    val db = b * 1.2f + 0.17f * sin(t)
+                    val px = f.n[0] + da * f.u[0] + db * f.v[0]
+                    val py = f.n[1] + da * f.u[1] + db * f.v[1]
+                    val pz = f.n[2] + da * f.u[2] + db * f.v[2]
+                    val r = rot(px, py, pz, ay, ax)
+                    if (i == 0) pipPath.moveTo(mx + r[0] * k, my + r[1] * k) else pipPath.lineTo(mx + r[0] * k, my + r[1] * k)
+                }
+                pipPath.close()
+                paint.style = Paint.Style.FILL
+                paint.color = pipColor
+                canvas.drawPath(pipPath, paint)
+                // heller Rand unten als Andeutung der Vertiefung
+                paint.style = Paint.Style.STROKE
+                paint.strokeWidth = c * 0.02f
+                paint.color = Color.argb(70, 255, 255, 255)
+                canvas.save()
+                canvas.translate(0f, c * 0.015f)
+                canvas.drawPath(pipPath, paint)
+                canvas.restore()
             }
         }
     }
