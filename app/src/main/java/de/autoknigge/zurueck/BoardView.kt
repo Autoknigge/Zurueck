@@ -444,7 +444,7 @@ class BoardView(context: Context) : View(context) {
     private val brass = 0xFFC9A648.toInt()
 
     /** Eingefräste Felder: ungefüllte Vollkreise mit dunkler Rille und hellem Rand darunter. */
-    private fun groove(canvas: Canvas, x: Float, y: Float, r: Float, c: Float) {
+    private fun groove(canvas: Canvas, x: Float, y: Float, r: Float, c: Float, gold: Boolean = true) {
         paint.shader = null
         paint.style = Paint.Style.STROKE
         paint.strokeWidth = c * 0.035f
@@ -454,9 +454,9 @@ class BoardView(context: Context) : View(context) {
         paint.color = 0xCC140B05.toInt()
         canvas.drawCircle(x, y, r, paint)
         if (style == 5) {
-            // Granit: Felder in leichtem Goldton umrandet
-            paint.strokeWidth = c * 0.04f
-            paint.color = 0xFFD2AE5E.toInt()
+            // Granit: Felder in leichtem Goldton umrandet, die vier Zielfelder schwarz
+            paint.strokeWidth = c * (if (gold) 0.04f else 0.055f)
+            paint.color = if (gold) 0xFFD2AE5E.toInt() else 0xFF000000.toInt()
             paint.alpha = 215
             canvas.drawCircle(x, y, r + c * 0.025f, paint)
             paint.alpha = 255
@@ -511,7 +511,7 @@ class BoardView(context: Context) : View(context) {
                 paint.shader = RadialGradient(x - r * 0.3f, y - r * 0.35f, r * 1.3f, 0x30FFFFFF, 0x55000000, Shader.TileMode.CLAMP)
                 canvas.drawCircle(x, y, r * 0.92f, paint)
                 paint.shader = null
-                groove(canvas, x, y, r, c)
+                groove(canvas, x, y, r, c, false)
             }
         }
         drawCenter(canvas, c)
